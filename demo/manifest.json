@@ -1,0 +1,14 @@
+{
+  "name": "自転車回収記録",
+  "short_name": "回収記録",
+  "description": "不法駐輪自転車の回収記録・警察提出用アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a2e4a",
+  "theme_color": "#1a2e4a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

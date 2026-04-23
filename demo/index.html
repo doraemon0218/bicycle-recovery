@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1a2e4a" />
+    <title>自転車回収記録</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="toast" class="toast"></div>
+
+    <header>
+      <div class="header-inner">
+        <div class="header-titles">
+          <h1>🚲 自転車回収記録</h1>
+          <p class="sub">不法駐輪回収・警察提出管理</p>
+        </div>
+        <div id="syncBadge" class="sync-badge offline">● オフライン</div>
+      </div>
+    </header>
+
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-page="register">登録</button>
+      <button class="tab-btn" data-page="list">一覧</button>
+      <button class="tab-btn" data-page="export">CSV出力</button>
+    </nav>
+
+    <main>
+
+      <!-- ========== REGISTER ========== -->
+      <section id="registerPage" class="page active">
+
+        <!-- 防犯登録 -->
+        <div class="card">
+          <h2>防犯登録</h2>
+          <div class="form-stack">
+            <label>防犯登録シール <span class="req">*</span></label>
+            <div class="seg-ctrl" id="hasRegCtrl">
+              <button class="seg-btn active" data-value="yes">あり</button>
+              <button class="seg-btn" data-value="no">なし</button>
+              <button class="seg-btn" data-value="unknown">不明</button>
+            </div>
+
+            <div id="regSection">
+              <!-- photo capture -->
+              <div class="photo-zone" id="photoZone">
+                <canvas id="photoPreview" style="display:none;"></canvas>
+                <div id="photoPlaceholder" class="photo-placeholder">
+                  <span>シールの写真をここに表示</span>
+                </div>
+                <div class="photo-btns">
+                  <button class="btn-camera" id="shootBtn">📷 撮影・選択</button>
+                  <button class="btn-camera secondary" id="retakeBtn" style="display:none;">↺ 撮り直す</button>
+                </div>
+                <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" />
+              </div>
+
+              <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
+
+              <label>防犯登録番号</label>
+              <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678（手動修正可）" autocomplete="off" />
+              <p class="field-hint">撮影後に自動入力されます。文字が違う場合は直接修正してください。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 車体状況 -->
+        <div class="card">
+          <h2>車体状況</h2>
+          <div class="form-stack">
+            <label>状態（複数選択可）</label>
+            <div class="condition-grid" id="conditionGrid"></div>
+            <label>追記・備考</label>
+            <textarea id="conditionNote" rows="2" placeholder="その他の状況（色・メーカー・特徴など）"></textarea>
+          </div>
+        </div>
+
+        <!-- 位置情報 -->
+        <div class="card">
+          <h2>回収位置</h2>
+          <div class="form-stack">
+            <button class="btn-location" id="getLocationBtn">📍 現在地を自動取得</button>
+            <div id="locationStatus" class="location-status" style="display:none;"></div>
+            <a id="mapsLink" class="maps-link" style="display:none;" target="_blank" rel="noopener">地図で確認 →</a>
+            <label>住所・目印（任意）</label>
+            <input id="locationNote" type="text" placeholder="例: ○○駅東口 駐輪禁止エリア" />
+          </div>
+        </div>
+
+        <!-- 回収情報 -->
+        <div class="card">
+          <h2>回収情報</h2>
+          <div class="form-stack">
+            <label>回収日時 <span class="req">*</span></label>
+            <input id="collectedAt" type="datetime-local" />
+
+            <label>搬送先保管場所 <span class="req">*</span></label>
+            <select id="storageLocation">
+              <option value="">選択してください</option>
+            </select>
+            <p id="storageAddress" class="field-hint storage-addr"></p>
+          </div>
+        </div>
+
+        <!-- 備考 -->
+        <div class="card">
+          <h2>その他の備考</h2>
+          <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button id="saveBtn" class="btn-primary btn-large">💾 保存する</button>
+        </div>
+
+      </section>
+
+      <!-- ========== LIST ========== -->
+      <section id="listPage" class="page">
+        <div class="list-toolbar">
+          <input id="searchInput" type="search" placeholder="番号・場所で検索…" />
+          <select id="filterStorage">
+            <option value="">全保管場所</option>
+          </select>
+        </div>
+        <div id="recordList" class="record-list">
+          <p class="muted center">登録されたデータがありません。</p>
+        </div>
+      </section>
+
+      <!-- ========== EXPORT ========== -->
+      <section id="exportPage" class="page">
+        <div class="card">
+          <h2>CSV出力（警察提出用）</h2>
+          <div class="form-stack">
+            <label>期間（開始）</label>
+            <input id="exportFrom" type="date" />
+            <label>期間（終了）</label>
+            <input id="exportTo" type="date" />
+
+            <div class="export-summary" id="exportSummary"></div>
+
+            <button id="exportBtn" class="btn-primary btn-large">📥 CSVダウンロード</button>
+            <button id="exportAllBtn" class="btn-secondary">全件ダウンロード</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>データ管理</h2>
+          <p class="field-hint">端末のストレージに保存されています。端末を変える際はCSVをバックアップしてください。</p>
+          <div id="storageInfo" class="storage-info"></div>
+          <button id="clearSyncedBtn" class="btn-danger-outline">送信済みデータを削除</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Record detail modal -->
+    <div id="modal" class="modal" style="display:none;">
+      <div class="modal-overlay" id="modalOverlay"></div>
+      <div class="modal-box">
+        <button class="modal-close" id="modalClose">✕</button>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
