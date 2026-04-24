@@ -96,12 +96,70 @@ function requestGPS(onProgress) {
   });
 }
 
+function detectOS() {
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return 'other';
+}
+
+function gpsSettingsGuideHTML() {
+  const os = detectOS();
+  if (os === 'ios') return `
+    <div class="gps-guide">
+      <div class="gps-guide-os">📱 iPhone / iPad の設定方法</div>
+      <div class="gps-guide-method">方法① ブラウザのアドレスバーから</div>
+      <ol class="gps-guide-list">
+        <li>Safariのアドレスバー左の <strong>「AA」</strong> をタップ</li>
+        <li><strong>「Webサイトの設定」</strong> をタップ</li>
+        <li><strong>「位置情報」→「許可」</strong> を選択</li>
+        <li>このページに戻り「もう一度試す」を押す</li>
+      </ol>
+      <div class="gps-guide-method">方法② 設定アプリから（①で変わらない場合）</div>
+      <ol class="gps-guide-list">
+        <li>ホームの <strong>「設定」</strong> アプリを開く</li>
+        <li><strong>「プライバシーとセキュリティ」→「位置情報サービス」</strong></li>
+        <li><strong>「Safari」→「このAppの使用中」</strong> を選択</li>
+        <li>このページに戻り「もう一度試す」を押す</li>
+      </ol>
+    </div>`;
+  if (os === 'android') return `
+    <div class="gps-guide">
+      <div class="gps-guide-os">🤖 Android の設定方法</div>
+      <div class="gps-guide-method">方法① アドレスバーの鍵マークから</div>
+      <ol class="gps-guide-list">
+        <li>アドレスバーの <strong>🔒 鍵マーク</strong> をタップ</li>
+        <li><strong>「権限」または「サイトの設定」</strong> をタップ</li>
+        <li><strong>「位置情報」→「許可」</strong> を選択</li>
+        <li>このページに戻り「もう一度試す」を押す</li>
+      </ol>
+      <div class="gps-guide-method">方法② 設定アプリから（①で変わらない場合）</div>
+      <ol class="gps-guide-list">
+        <li><strong>「設定」→「アプリ」→「Chrome」</strong>（お使いのブラウザ）</li>
+        <li><strong>「権限」→「位置情報」→「アプリの使用中のみ許可」</strong></li>
+        <li>このページに戻り「もう一度試す」を押す</li>
+      </ol>
+    </div>`;
+  return `
+    <div class="gps-guide">
+      <div class="gps-guide-os">位置情報の許可が必要です</div>
+      <p style="margin:8px 0 0;">ブラウザのアドレスバー付近の位置情報アイコンをクリックし、「許可」に変更してください。</p>
+    </div>`;
+}
+
+function showGpsDenied(containerEl, isSilver) {
+  containerEl.innerHTML = `
+    <div class="${isSilver ? 'sv-gps-result' : 'location-status'} error" style="display:block;">
+      <div class="gps-denied-title">❌ 位置情報の使用が許可されていません</div>
+      ${gpsSettingsGuideHTML()}
+    </div>`;
+}
+
 function gpsErrorMsg(err) {
   switch (err?.code) {
-    case 1: return '📵 位置情報の使用が許可されていません。\nスマートフォンの「設定」→「プライバシー」→「位置情報サービス」でこのサイトを「許可」に変更してください。';
-    case 2: return '📡 GPS信号を受信できませんでした。\n屋外の開けた場所でもう一度お試しください。建物内では精度が下がります。';
-    case 3: return '⏱ GPS取得がタイムアウトしました。\n屋外に移動して「もう一度試す」を押してください。';
-    default: return '⚠️ 位置情報を取得できませんでした。\nそのまま「つぎへ」を押して進んでください。';
+    case 2: return '📡 GPS信号を受信できませんでした。屋外の開けた場所でもう一度お試しください。';
+    case 3: return '⏱ GPS取得がタイムアウトしました。屋外に移動してもう一度試してください。';
+    default: return '⚠️ 位置情報を取得できませんでした。そのまま「つぎへ」を押して進んでください。';
   }
 }
 
@@ -249,9 +307,7 @@ function attachGpsPermBtn(prefix) {
     status.innerHTML = `<span class="gps-status-icon">❌</span><span class="gps-status-text">位置情報が<strong>拒否</strong>されています</span>`;
     btn.textContent = '🔄 もう一度試す';
     hint.style.display = 'block';
-    hint.innerHTML = isSilver
-      ? `<strong>【iPhoneの場合】</strong><br>「設定」→「プライバシーとセキュリティ」→「位置情報サービス」→「Safari」を「このAppの使用中」に変更してください。<br><br><strong>【Androidの場合】</strong><br>「設定」→「アプリ」→「ブラウザ」→「権限」→「位置情報」を許可してください。`
-      : `<b>iPhone:</b> 設定 → プライバシーとセキュリティ → 位置情報サービス → Safari → 「このAppの使用中」<br><b>Android:</b> 設定 → アプリ → ブラウザ → 権限 → 位置情報を許可`;
+    hint.innerHTML = gpsSettingsGuideHTML();
   }
 }
 
@@ -376,7 +432,11 @@ function initGeolocation() {
       a.style.display = 'inline';
       toast('位置情報を取得しました');
     } catch (err) {
-      showLocStatus('error', gpsErrorMsg(err));
+      if (err.code === 1) {
+        showGpsDenied($('locationStatus'), false);
+      } else {
+        showLocStatus('error', gpsErrorMsg(err));
+      }
     } finally {
       btn.disabled = false;
     }
@@ -863,32 +923,31 @@ function svRenderLocation(card) {
   }
   card.innerHTML += `
     <p class="sv-step-hint">ボタンを押すとスマートフォンのGPSが現在地を記録します。<br>
-    <strong>インターネット接続がなくても使えます。</strong></p>
+    <strong>インターネット接続がなくても使えます。</strong><br>
+    初回は「<strong>許可</strong>」を選んでください。</p>
     <button class="sv-gps-btn" id="svGpsBtn">
       ${hasGps ? '🔄 位置情報を取り直す' : '📍 現在地を記録する'}
     </button>
     <div id="svGpsResult">${accHtml}</div>
     <p class="sv-step-hint" style="margin-top:12px;">
-      ❓ 取得できない場合はそのまま「つぎへ」を押しても構いません。<br>
-      初回は「位置情報の使用を許可」を選んでください。
+      ❓ 取得できない場合はそのまま「つぎへ」を押しても構いません。
     </p>`;
 
   const gpsBtnEl = $('svGpsBtn');
   gpsBtnEl.addEventListener('click', async () => {
     gpsBtnEl.disabled = true;
     gpsBtnEl.textContent = '⏳ 取得中…';
+    const resultEl = $('svGpsResult');
     try {
       const pos = await requestGPS((type, msg) => {
-        const el = $('svGpsResult');
-        if (!el) return;
-        el.innerHTML = `<div class="sv-gps-result ${type}" style="display:block;">${msg.replace(/\n/g,'<br>')}</div>`;
+        if (!resultEl) return;
+        resultEl.innerHTML = `<div class="sv-gps-result ${type}" style="display:block;">${msg.replace(/\n/g,'<br>')}</div>`;
       });
       sv.state.lat = pos.coords.latitude;
       sv.state.lng = pos.coords.longitude;
       sv.state.locationAccuracy = Math.round(pos.coords.accuracy);
       const acc = accuracyInfo(sv.state.locationAccuracy);
-      const el = $('svGpsResult');
-      if (el) el.innerHTML = `<div class="sv-gps-result ok">
+      if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result ok">
         <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
         <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
         <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する（ネット接続時）→</a>
@@ -896,9 +955,13 @@ function svRenderLocation(card) {
       gpsBtnEl.textContent = '🔄 位置情報を取り直す';
       toast('📍 現在地を記録しました');
     } catch (err) {
-      const el = $('svGpsResult');
-      if (el) el.innerHTML = `<div class="sv-gps-result error" style="display:block;">${gpsErrorMsg(err).replace(/\n/g,'<br>')}</div>`;
-      gpsBtnEl.textContent = '🔄 もう一度試す';
+      if (err.code === 1) {
+        if (resultEl) showGpsDenied(resultEl, true);
+        gpsBtnEl.textContent = '🔄 もう一度試す';
+      } else {
+        if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result error" style="display:block;">${gpsErrorMsg(err)}</div>`;
+        gpsBtnEl.textContent = '🔄 もう一度試す';
+      }
     } finally {
       gpsBtnEl.disabled = false;
     }
