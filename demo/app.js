@@ -66,6 +66,51 @@ async function runOCR(dataUrl, statusCb) {
   } catch(err) { statusCb?.('error','⚠️ 読み取り失敗。手動で入力してください。'); return ''; }
 }
 
+// ── GPS ヘルパー（スマートフォン対応・オフライン可）────────
+// navigator.geolocation はGPS衛星を直接使用するためネット不要。
+// 1段目：1分以内のキャッシュ許容 → 端末のGPSがウォームなら即返答
+// 2段目：タイムアウト時のみ新規取得（コールドスタート対応）
+function requestGPS(onProgress) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject({ code: -1 }); return;
+    }
+    onProgress?.('loading', '⏳ GPS信号を取得中…\nスマートフォンのGPS（衛星測位）を使用します。ネット接続は不要です。');
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos),
+      err => {
+        if (err.code === 3) {
+          // タイムアウト → キャッシュなしで再試行
+          onProgress?.('loading', '⏳ GPS信号を探しています…もう少しお待ちください\n屋外の開けた場所だと早く取得できます。');
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve(pos),
+            err2 => reject(err2),
+            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+          );
+        } else {
+          reject(err);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+    );
+  });
+}
+
+function gpsErrorMsg(err) {
+  switch (err?.code) {
+    case 1: return '📵 位置情報の使用が許可されていません。\nスマートフォンの「設定」→「プライバシー」→「位置情報サービス」でこのサイトを「許可」に変更してください。';
+    case 2: return '📡 GPS信号を受信できませんでした。\n屋外の開けた場所でもう一度お試しください。建物内では精度が下がります。';
+    case 3: return '⏱ GPS取得がタイムアウトしました。\n屋外に移動して「もう一度試す」を押してください。';
+    default: return '⚠️ 位置情報を取得できませんでした。\nそのまま「つぎへ」を押して進んでください。';
+  }
+}
+
+function accuracyInfo(meters) {
+  if (meters <= 20)  return { icon: '🟢', label: '高精度', text: `±${meters}m` };
+  if (meters <= 100) return { icon: '🟡', label: '普通',   text: `±${meters}m` };
+  return               { icon: '🔴', label: '低精度',  text: `±${meters}m（屋内・高層階は精度が下がります）` };
+}
+
 let toastTimer=null;
 function toast(msg, dur=2800) {
   const el=document.getElementById('toast');
@@ -197,18 +242,34 @@ function initPhotoCapture() {
 }
 
 function initGeolocation() {
-  $('getLocationBtn').addEventListener('click', ()=>{
-    if(!navigator.geolocation){showLocStatus('error','位置情報APIが使えません');return;}
-    showLocStatus('loading','⏳ 取得中…');
-    navigator.geolocation.getCurrentPosition(pos=>{
-      ns.lat=pos.coords.latitude; ns.lng=pos.coords.longitude; ns.locationAccuracy=Math.round(pos.coords.accuracy);
-      showLocStatus('ok',`✅ 取得完了（精度±${ns.locationAccuracy}m）`);
-      const a=$('mapsLink'); a.href=`https://maps.google.com/?q=${ns.lat},${ns.lng}`; a.style.display='inline';
+  const btn = $('getLocationBtn');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      const pos = await requestGPS((type, msg) => showLocStatus(type, msg));
+      ns.lat = pos.coords.latitude;
+      ns.lng = pos.coords.longitude;
+      ns.locationAccuracy = Math.round(pos.coords.accuracy);
+      const acc = accuracyInfo(ns.locationAccuracy);
+      showLocStatus('ok', `✅ 取得完了 ${acc.icon} ${acc.label}（${acc.text}）\n${ns.lat.toFixed(6)}, ${ns.lng.toFixed(6)}`);
+      const a = $('mapsLink');
+      a.href = `https://maps.google.com/?q=${ns.lat},${ns.lng}`;
+      a.style.display = 'inline';
       toast('位置情報を取得しました');
-    }, err=>showLocStatus('error',`取得失敗: ${err.message}`), {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    } catch (err) {
+      showLocStatus('error', gpsErrorMsg(err));
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
-function showLocStatus(type,msg){const el=$('locationStatus');el.className=`location-status ${type}`;el.textContent=msg;el.style.display='block';}
+function showLocStatus(type, msg) {
+  const el = $('locationStatus');
+  el.className = `location-status ${type}`;
+  el.style.whiteSpace = 'pre-line';
+  el.textContent = msg;
+  el.style.display = 'block';
+}
 
 function buildNormalConditionGrid() {
   const grid=$('conditionGrid'); if(!grid) return;
@@ -535,27 +596,58 @@ function svRenderCondition(card) {
 }
 
 function svRenderLocation(card) {
-  const hasGps=sv.state.lat!==null;
-  card.innerHTML+=`<p class="sv-step-hint">ボタンを押すと現在の場所が自動で記録されます。「許可」を選んでください。</p>
-    <button class="sv-gps-btn" id="svGpsBtn">${hasGps?'✅ 位置情報を再取得する':'📍 現在地を記録する'}</button>
-    ${hasGps?`<div class="sv-gps-result ok">✅ 位置情報を記録しました<br>精度：±${sv.state.locationAccuracy}m<br>
-      <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する →</a>
-    </div>`:`<div class="sv-gps-result" id="svGpsResult" style="display:none;"></div>`}
-    <p class="sv-step-hint" style="margin-top:12px;">取得できない場合はそのまま「つぎへ」を押しても構いません。</p>`;
-  $('svGpsBtn').addEventListener('click',()=>{
-    if(!navigator.geolocation){svShowGps('error','位置情報が使えません。「つぎへ」を押してください。');return;}
-    svShowGps('loading','⏳ 位置情報を取得しています…');
-    navigator.geolocation.getCurrentPosition(pos=>{
-      sv.state.lat=pos.coords.latitude;sv.state.lng=pos.coords.longitude;sv.state.locationAccuracy=Math.round(pos.coords.accuracy);
-      svShowGps('ok',`✅ 記録しました（精度 ±${sv.state.locationAccuracy}m）`);
-      $('svGpsBtn').textContent='✅ 位置情報を再取得する';toast('位置情報を記録しました');
-    },err=>svShowGps('error','取得できませんでした。「つぎへ」で進んでください。'),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  const hasGps = sv.state.lat !== null;
+  let accHtml = '';
+  if (hasGps) {
+    const acc = accuracyInfo(sv.state.locationAccuracy);
+    accHtml = `<div class="sv-gps-result ok">
+      <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
+      <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
+      <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する（ネット接続時）→</a>
+    </div>`;
+  }
+  card.innerHTML += `
+    <p class="sv-step-hint">ボタンを押すとスマートフォンのGPSが現在地を記録します。<br>
+    <strong>インターネット接続がなくても使えます。</strong></p>
+    <button class="sv-gps-btn" id="svGpsBtn">
+      ${hasGps ? '🔄 位置情報を取り直す' : '📍 現在地を記録する'}
+    </button>
+    <div id="svGpsResult">${accHtml}</div>
+    <p class="sv-step-hint" style="margin-top:12px;">
+      ❓ 取得できない場合はそのまま「つぎへ」を押しても構いません。<br>
+      初回は「位置情報の使用を許可」を選んでください。
+    </p>`;
+
+  const gpsBtnEl = $('svGpsBtn');
+  gpsBtnEl.addEventListener('click', async () => {
+    gpsBtnEl.disabled = true;
+    gpsBtnEl.textContent = '⏳ 取得中…';
+    try {
+      const pos = await requestGPS((type, msg) => {
+        const el = $('svGpsResult');
+        if (!el) return;
+        el.innerHTML = `<div class="sv-gps-result ${type}" style="display:block;">${msg.replace(/\n/g,'<br>')}</div>`;
+      });
+      sv.state.lat = pos.coords.latitude;
+      sv.state.lng = pos.coords.longitude;
+      sv.state.locationAccuracy = Math.round(pos.coords.accuracy);
+      const acc = accuracyInfo(sv.state.locationAccuracy);
+      const el = $('svGpsResult');
+      if (el) el.innerHTML = `<div class="sv-gps-result ok">
+        <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
+        <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
+        <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する（ネット接続時）→</a>
+      </div>`;
+      gpsBtnEl.textContent = '🔄 位置情報を取り直す';
+      toast('📍 現在地を記録しました');
+    } catch (err) {
+      const el = $('svGpsResult');
+      if (el) el.innerHTML = `<div class="sv-gps-result error" style="display:block;">${gpsErrorMsg(err).replace(/\n/g,'<br>')}</div>`;
+      gpsBtnEl.textContent = '🔄 もう一度試す';
+    } finally {
+      gpsBtnEl.disabled = false;
+    }
   });
-}
-function svShowGps(type,msg){
-  let el=$('svGpsResult');if(!el)return;
-  el.style.display='block';el.className=`sv-gps-result ${type}`;
-  el.innerHTML=msg+(type==='ok'&&sv.state.lat?`<br><a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する →</a>`:'');
 }
 
 function svRenderStorage(card) {
