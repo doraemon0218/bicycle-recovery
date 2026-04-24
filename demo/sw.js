@@ -1,4 +1,4 @@
-const CACHE = 'bicycle-recovery-v2';
+const CACHE = 'bicycle-recovery-v3';
 const ASSETS = [
   '/',
   '/index.html',

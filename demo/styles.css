@@ -432,6 +432,134 @@ textarea { resize: vertical; }
 .sv-mode-card-check { margin-left: auto; font-size: 1.8rem; flex-shrink: 0; }
 .sv-current-badge { display: inline-block; font-size: 0.85rem; font-weight: 700; padding: 4px 14px; border-radius: 20px; background: #2b6cb0; color: #fff; margin-bottom: 18px; }
 
+/* ── 登録完了カード（通常版） ─────────────────── */
+.n-complete-card {
+  margin: 16px 12px;
+  background: var(--ok-bg);
+  border: 2px solid #68d391;
+  border-radius: 16px;
+  padding: 24px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.nc-badge {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--ok);
+}
+.nc-count {
+  font-size: 1.05rem;
+  color: #1a4731;
+}
+.nc-count strong {
+  font-size: 1.6rem;
+  color: var(--ok);
+}
+.nc-reg, .nc-storage {
+  font-size: 0.92rem;
+  color: #2d6a4f;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 14px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+.nc-next-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nc-list-btn {
+  width: 100%;
+  padding: 12px;
+  background: #fff;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── 登録完了画面（シルバー版） ─────────────────── */
+.sv-done-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.sv-done-icon {
+  font-size: 4rem;
+  line-height: 1;
+}
+.sv-done-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--ok);
+}
+.sv-done-count {
+  font-size: 1.1rem;
+  color: #1a4731;
+  background: var(--ok-bg);
+  border-radius: 12px;
+  padding: 10px 24px;
+}
+.sv-done-count strong {
+  font-size: 2rem;
+  color: var(--ok);
+}
+.sv-done-reg, .sv-done-storage {
+  font-size: 1rem;
+  color: #2d6a4f;
+  background: #fff;
+  border: 1.5px solid #c6f6d5;
+  border-radius: 10px;
+  padding: 10px 16px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+.sv-done-next-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sv-done-list-btn {
+  width: 100%;
+  padding: 16px;
+  background: #fff;
+  color: var(--accent);
+  border: 2.5px solid var(--accent);
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 /* Double-entry verification */
 .input-with-badge { position: relative; display: flex; align-items: center; gap: 8px; }
 .input-with-badge input { flex: 1; }

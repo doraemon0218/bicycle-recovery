@@ -423,21 +423,54 @@ function buildStorageSelects() {
 function getSelectedConditions(){return Array.from(document.querySelectorAll('#conditionGrid input:checked')).map(cb=>cb.value);}
 function setDefaultDatetime(){const now=new Date(),local=new Date(now.getTime()-now.getTimezoneOffset()*60000),el=$('collectedAt');if(el)el.value=local.toISOString().slice(0,16);}
 
+async function countTodayRecords() {
+  const all = await dbGetAll();
+  const today = new Date().toDateString();
+  return all.filter(r => new Date(r.collectedAt).toDateString() === today).length;
+}
+
+function showNormalComplete(count, regNumber, storageName) {
+  const regLine = regNumber
+    ? `<div class="nc-reg">🔖 登録番号：${escHtml(regNumber)}</div>`
+    : `<div class="nc-reg">🔖 登録番号：（なし・不明）</div>`;
+  $('nCompleteCard').innerHTML = `
+    <div class="nc-badge">✅ 登録完了</div>
+    <div class="nc-count">本日 <strong>${count}</strong> 台目を記録しました</div>
+    ${regLine}
+    <div class="nc-storage">🏢 保管先：${escHtml(storageName)}</div>
+    <button class="nc-next-btn" id="ncNextBtn">➕ 次の自転車を登録する</button>
+    <button class="nc-list-btn" id="ncListBtn">📋 一覧を確認する</button>`;
+  $('nCompleteCard').style.display = 'block';
+  $('nFormCards').style.display = 'none';
+  window.scrollTo({top:0,behavior:'smooth'});
+  $('ncNextBtn').addEventListener('click', ()=>{
+    $('nCompleteCard').style.display='none';
+    $('nFormCards').style.display='block';
+    resetNormalForm();
+  });
+  $('ncListBtn').addEventListener('click', ()=>{
+    $('nCompleteCard').style.display='none';
+    $('nFormCards').style.display='block';
+    document.querySelector('.n-tab[data-n-tab="list"]').click();
+  });
+}
+
 function initSave() {
   $('saveBtn').addEventListener('click', async ()=>{
     const collectedAt=$('collectedAt').value, storageId=$('storageLocation').value;
     if(!collectedAt){toast('⚠️ 回収日時を入力してください');return;}
     if(!storageId){toast('⚠️ 保管場所を選択してください');return;}
-    // 防犯登録番号：2回入力の照合チェック
     if(ns.hasReg==='yes'){
       const v1=($('regNumber')?.value||'').trim();
       const v2=($('regNumberConfirm')?.value||'').trim();
       if(v1 && v2 && v1!==v2){toast('⚠️ 登録番号の1回目と2回目が一致しません');return;}
       if(v1 && !v2){toast('⚠️ 登録番号の確認（2回目）を入力してください');return;}
     }
+    const regNum = ns.hasReg==='yes' ? ($('regNumber')?.value.trim()||'') : '';
+    const loc = STORAGE_LOCATIONS.find(l=>l.id===storageId);
     await saveRecord({
       hasRegistration:ns.hasReg,
-      registrationNumber:ns.hasReg==='yes'?($('regNumber')?.value.trim()||''):'',
+      registrationNumber:regNum,
       photoDataUrl:ns.hasReg==='yes'?(ns.photoDataUrl||null):null,
       ocrPrediction:ns.ocrPrediction,
       inputMethod:ns.inputMethod,
@@ -446,7 +479,8 @@ function initSave() {
       locationNote:$('locationNote').value.trim(),
       collectedAt:new Date(collectedAt).toISOString(), storageLocationId:storageId, notes:$('notes').value.trim(),
     });
-    toast('✅ 保存しました'); resetNormalForm();
+    const count = await countTodayRecords();
+    showNormalComplete(count, regNum, loc?.name||'');
   });
 }
 
@@ -906,13 +940,54 @@ async function svSave(){
     await saveRecord({
       hasRegistration:sv.state.hasReg||'unknown',
       registrationNumber:sv.state.regNumber||'',photoDataUrl:sv.state.photoDataUrl||null,
+      ocrPrediction:sv.state.ocrPrediction||'',inputMethod:sv.state.inputMethod||'manual',
       conditions:sv.state.conditions,conditionNote:'',
       lat:sv.state.lat,lng:sv.state.lng,locationAccuracy:sv.state.locationAccuracy,
       locationNote:'',collectedAt:new Date().toISOString(),
       storageLocationId:sv.state.storageId,notes:'',
     });
-    toast('✅ 保存しました！'); svGoHome();
+    const count = await countTodayRecords();
+    const loc = STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
+    svRenderDone(count, sv.state.regNumber||'', loc?.name||'');
   }catch(err){toast('❌ 保存失敗: '+err.message);}
+}
+
+function svRenderDone(count, regNumber, storageName) {
+  const regLine = regNumber
+    ? `<div class="sv-done-reg">🔖 登録番号：${escHtml(regNumber)}</div>`
+    : `<div class="sv-done-reg">🔖 登録番号：（なし・不明）</div>`;
+  const content = $('svStepContent');
+  if(!content) return;
+  content.innerHTML = `
+    <div class="sv-done-card">
+      <div class="sv-done-icon">✅</div>
+      <div class="sv-done-title">登録完了！</div>
+      <div class="sv-done-count">本日 <strong>${count}</strong> 台目を記録しました</div>
+      ${regLine}
+      <div class="sv-done-storage">🏢 保管先：${escHtml(storageName)}</div>
+      <button class="sv-done-next-btn" id="svDoneNextBtn">➕ 次の自転車を登録する</button>
+      <button class="sv-done-list-btn" id="svDoneListBtn">📋 記録一覧を見る</button>
+    </div>`;
+  // ナビボタンを隠す
+  const nav = document.querySelector('.sv-bottom-nav');
+  if(nav) nav.style.display='none';
+  const reset = $('svResetBtn');
+  if(reset) reset.style.display='none';
+  $('svStepLabel').textContent='✅ 登録完了';
+  $('svProgressFill').style.width='100%';
+  $('svDoneNextBtn').addEventListener('click', ()=>{
+    if(nav) nav.style.display='';
+    svGoHome();
+  });
+  $('svDoneListBtn').addEventListener('click', ()=>{
+    if(nav) nav.style.display='';
+    svGoHome();
+    document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
+    document.querySelector('.sv-tab[data-sv-tab="list"]').classList.add('active');
+    $('svListTab').classList.add('active');
+    svRenderList();
+  });
 }
 
 async function svRenderList(){
