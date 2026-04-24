@@ -567,3 +567,40 @@ textarea { resize: vertical; }
 .reg-match { font-size: 0.88rem; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin-top: 6px; }
 .reg-match.ok { background: var(--ok-bg); color: var(--ok); }
 .reg-match.error { background: var(--warn-bg); color: var(--warn); }
+
+/* 現在日時ボタン（通常版） */
+.btn-now {
+  width: 100%; padding: 11px; background: #f0fff4; color: var(--ok);
+  border: 1.5px solid #68d391; border-radius: 8px;
+  font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit;
+  margin-bottom: 6px;
+}
+
+/* シルバー版：自由記載 */
+.sv-notes-input {
+  width: 100%; box-sizing: border-box; padding: 14px;
+  border: 2px solid var(--bd-strong); border-radius: 12px;
+  font-size: 1.15rem; font-family: inherit; line-height: 1.6;
+  resize: vertical; min-height: 140px;
+}
+.sv-notes-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(43,108,176,.15); }
+
+/* シルバー版：回収日時 */
+.sv-now-btn {
+  width: 100%; padding: 20px; background: #f0fff4; color: var(--ok);
+  border: 2.5px solid #68d391; border-radius: 16px;
+  font-size: 1.3rem; font-weight: 800; cursor: pointer; font-family: inherit;
+  margin-bottom: 16px;
+}
+.sv-datetime-wrap { margin-bottom: 10px; }
+.sv-datetime-input {
+  width: 100%; box-sizing: border-box; padding: 12px 14px;
+  border: 2px solid var(--bd-strong); border-radius: 12px;
+  font-size: 1.1rem; font-family: inherit;
+}
+.sv-datetime-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(43,108,176,.15); }
+.sv-datetime-display {
+  text-align: center; font-size: 1.05rem; font-weight: 700;
+  color: var(--ok); background: var(--ok-bg);
+  border-radius: 10px; padding: 10px; margin-top: 8px;
+}

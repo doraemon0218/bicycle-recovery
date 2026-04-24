@@ -121,7 +121,7 @@ const $=id=>document.getElementById(id);
 const escHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 // ── モード管理 ─────────────────────────────────
-function getMode() { return localStorage.getItem('appMode') || 'normal'; }
+function getMode() { return localStorage.getItem('appMode') || 'silver'; }
 function setMode(mode) {
   localStorage.setItem('appMode', mode);
   const isNormal = mode === 'normal';
@@ -282,6 +282,7 @@ function initNormalApp() {
   initList();
   initExport();
   setDefaultDatetime();
+  $('setNowBtn')?.addEventListener('click', setDefaultDatetime);
 }
 
 function initNormalNav() {
@@ -351,17 +352,10 @@ function initPhotoCapture() {
       canvas.style.display='block'; $('photoPlaceholder').style.display='none';
       $('retakeBtn').style.display='flex'; $('shootBtn').style.display='none';
     }; img.src=dataUrl;
-    // 確認フィールドをリセット（再撮影時）
-    $('regNumberConfirm').value=''; $('regMatchStatus').style.display='none';
-    const text=await runOCR(dataUrl,(type,msg)=>{
-      const el=$('ocrStatus'); el.className=`ocr-status ${type}`; el.textContent=msg; el.style.display='block';
-    });
-    if(text){
-      $('regNumber').value=text;
-      ns.ocrPrediction=text;
-      ns.inputMethod='ocr_accepted'; // ユーザーが編集すれば ocr_corrected へ
-      const badge=$('regOcrBadge'); if(badge) badge.style.display='inline';
-    }
+    // 再撮影時は入力をリセット（番号は手入力）
+    $('regNumber').value=''; $('regNumberConfirm').value='';
+    if($('regMatchStatus')) $('regMatchStatus').style.display='none';
+    ns.ocrPrediction=''; ns.inputMethod='manual';
     e.target.value='';
   });
 }
@@ -652,16 +646,20 @@ const sv = {
     hasReg:null, photoDataUrl:null,
     regNumber:'', regNumberConfirm:'',
     ocrPrediction:'', inputMethod:'manual',
-    conditions:[], lat:null, lng:null, locationAccuracy:null, storageId:null
+    conditions:[], conditionNote:'',
+    lat:null, lng:null, locationAccuracy:null,
+    collectedAt:null, storageId:null, notes:''
   },
 };
 const SV_STEPS = [
-  { id:'reg',       title:'防犯登録シールについて',     render:svRenderReg },
-  { id:'photo',     title:'シールの写真を撮りましょう', render:svRenderPhoto, skip:()=>sv.state.hasReg!=='yes' },
+  { id:'reg',       title:'防犯登録シールについて',       render:svRenderReg },
+  { id:'photo',     title:'シールを撮影して番号を入力',   render:svRenderPhoto, skip:()=>sv.state.hasReg!=='yes' },
   { id:'condition', title:'自転車の状態を教えてください', render:svRenderCondition },
-  { id:'location',  title:'現在地を記録します',          render:svRenderLocation },
-  { id:'storage',   title:'保管場所を選んでください',    render:svRenderStorage },
-  { id:'confirm',   title:'確認して保存しましょう',      render:svRenderConfirm },
+  { id:'location',  title:'現在地を記録します',           render:svRenderLocation },
+  { id:'datetime',  title:'回収日時を確認してください',   render:svRenderDatetime },
+  { id:'storage',   title:'保管場所を選んでください',     render:svRenderStorage },
+  { id:'notes',     title:'特記事項・メモ（任意）',       render:svRenderNotes },
+  { id:'confirm',   title:'確認して保存しましょう',       render:svRenderConfirm },
 ];
 const svActiveSteps = () => SV_STEPS.filter(s => !s.skip?.());
 
@@ -687,7 +685,7 @@ function svInit() {
 
 function svGoHome() {
   sv.currentStep = 0;
-  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],lat:null,lng:null,locationAccuracy:null,storageId:null};
+  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
   // Switch to home tab
   document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
@@ -766,21 +764,16 @@ function svUpdateRegMatch() {
 
 function svRenderPhoto(card) {
   const hasPhoto=!!sv.state.photoDataUrl;
-  card.innerHTML+=`<p class="sv-step-hint">シールに近づいて、できるだけ真正面から撮影してください。番号を自動で読み取ります。</p>
+  card.innerHTML+=`<p class="sv-step-hint">シールに近づいて撮影してください。<br>撮影後、番号を2回入力して一致を確認します。</p>
     ${hasPhoto?`<img class="sv-photo-preview" src="${sv.state.photoDataUrl}" alt="写真">`:''}
     <button class="sv-camera-btn${hasPhoto?' done':''}" id="svCameraBtn">
       ${hasPhoto?'📷 撮り直す':'📷 カメラで撮影する'}
     </button>
     <input type="file" id="svPhotoInput" accept="image/*" capture="environment" style="display:none;" />
-    <div class="sv-error-msg" id="svOcrStatus" style="display:none;background:#ebf4ff;border-color:#bee3f8;color:#2b6cb0;"></div>
     ${hasPhoto?`<div class="sv-ocr-box">
-      <div class="sv-ocr-label">📋 読み取った番号（1回目・修正できます）</div>
-      <div class="input-with-badge">
-        <input class="sv-ocr-input" id="svRegInput" type="text" value="${escHtml(sv.state.regNumber)}" inputmode="text" autocomplete="off" placeholder="例: 東京 12345678" />
-        <span id="svOcrBadge" class="ocr-badge"${sv.state.ocrPrediction?'':' style="display:none;"'}>OCR自動入力</span>
-      </div>
-      <div class="sv-ocr-hint">文字が違う場合はここで直接なおしてください</div>
-      <div class="sv-ocr-label" style="margin-top:14px;">📋 番号をもう一度入力（確認）</div>
+      <div class="sv-ocr-label">🔢 登録番号（1回目）</div>
+      <input class="sv-ocr-input" id="svRegInput" type="text" value="${escHtml(sv.state.regNumber)}" inputmode="text" autocomplete="off" placeholder="例: 東京 12345678" />
+      <div class="sv-ocr-label" style="margin-top:14px;">🔢 登録番号（もう一度・確認）</div>
       <input class="sv-ocr-input" id="svRegConfirmInput" type="text" value="${escHtml(sv.state.regNumberConfirm)}" inputmode="text" autocomplete="off" placeholder="同じ番号をもう一度入力" />
       <div id="svRegMatchStatus" class="reg-match" style="display:none;"></div>
     </div>`:''}
@@ -792,32 +785,12 @@ function svRenderPhoto(card) {
     sv.state.photoDataUrl=dataUrl; sv.state.regNumber=''; sv.state.regNumberConfirm='';
     sv.state.ocrPrediction=''; sv.state.inputMethod='manual';
     svRenderCurrentStep();
-    const text=await runOCR(dataUrl,(type,msg)=>{
-      const el=$('svOcrStatus');if(!el)return;
-      el.style.display='block';
-      if(type==='loading'){el.style.background='#ebf4ff';el.style.borderColor='#bee3f8';el.style.color='#2b6cb0';}
-      else if(type==='done'){el.style.background='#f0fff4';el.style.borderColor='#c6f6d5';el.style.color='#276749';}
-      else{el.style.background='#fff5f5';el.style.borderColor='#fed7d7';el.style.color='#c53030';}
-      el.classList.add('show'); el.textContent=msg;
-    });
-    if(text){
-      sv.state.regNumber=text; sv.state.ocrPrediction=text; sv.state.inputMethod='ocr_accepted';
-      const inp=$('svRegInput'); if(inp) inp.value=text;
-      const badge=$('svOcrBadge'); if(badge) badge.style.display='inline';
-    }
     e.target.value='';
   });
   const inp=$('svRegInput');
-  if(inp) inp.addEventListener('input',()=>{
-    sv.state.regNumber=inp.value;
-    if(sv.state.ocrPrediction && inp.value!==sv.state.ocrPrediction) sv.state.inputMethod='ocr_corrected';
-    svUpdateRegMatch();
-  });
+  if(inp) inp.addEventListener('input',()=>{sv.state.regNumber=inp.value;svUpdateRegMatch();});
   const inp2=$('svRegConfirmInput');
-  if(inp2) inp2.addEventListener('input',()=>{
-    sv.state.regNumberConfirm=inp2.value;
-    svUpdateRegMatch();
-  });
+  if(inp2) inp2.addEventListener('input',()=>{sv.state.regNumberConfirm=inp2.value;svUpdateRegMatch();});
   svUpdateRegMatch();
 }
 
@@ -837,6 +810,44 @@ function svRenderCondition(card) {
       else sv.state.conditions=sv.state.conditions.filter(c=>c!==cb.value);
     });
   });
+}
+
+function svRenderNotes(card) {
+  card.innerHTML+=`<p class="sv-step-hint">色・メーカー・特徴など、気になることがあれば書いてください。<br>なければそのまま「つぎへ」を押してください。</p>
+    <textarea class="sv-notes-input" id="svNotesInput" rows="5" placeholder="例：赤いママチャリ、前カゴあり、鍵なし">${escHtml(sv.state.notes)}</textarea>`;
+  const ta=$('svNotesInput');
+  if(ta) ta.addEventListener('input',()=>{sv.state.notes=ta.value;});
+}
+
+function svRenderDatetime(card) {
+  function nowLocal(){
+    const now=new Date();
+    return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
+  if(!sv.state.collectedAt) sv.state.collectedAt=nowLocal();
+  card.innerHTML+=`<p class="sv-step-hint">回収した日時を確認してください。<br>今すぐ登録するなら「現在日時を設定」を押してください。</p>
+    <button class="sv-now-btn" id="svNowBtn">🕐 現在日時を設定</button>
+    <div class="sv-datetime-wrap">
+      <label class="sv-ocr-label" style="margin-bottom:6px;">日時を修正する場合</label>
+      <input class="sv-datetime-input" id="svDatetimeInput" type="datetime-local" value="${sv.state.collectedAt}" />
+    </div>
+    <div id="svDatetimeDisplay" class="sv-datetime-display">${formatDatetimeJa(sv.state.collectedAt)}</div>
+    <div class="sv-error-msg" id="svErr"></div>`;
+  $('svNowBtn').addEventListener('click',()=>{
+    sv.state.collectedAt=nowLocal();
+    $('svDatetimeInput').value=sv.state.collectedAt;
+    $('svDatetimeDisplay').textContent=formatDatetimeJa(sv.state.collectedAt);
+  });
+  $('svDatetimeInput').addEventListener('input',e=>{
+    sv.state.collectedAt=e.target.value;
+    $('svDatetimeDisplay').textContent=formatDatetimeJa(sv.state.collectedAt);
+  });
+}
+
+function formatDatetimeJa(dtStr){
+  if(!dtStr)return '';
+  const d=new Date(dtStr);
+  return d.toLocaleString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'});
 }
 
 function svRenderLocation(card) {
@@ -916,12 +927,15 @@ function svRenderStorage(card) {
 
 function svRenderConfirm(card) {
   const loc=STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
-  const regText=sv.state.hasReg==='yes'?`あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':'（番号未読取）'}`:sv.state.hasReg==='no'?'なし':'不明';
+  const regText=sv.state.hasReg==='yes'?`あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':'（番号未入力）'}`:sv.state.hasReg==='no'?'なし':'不明';
+  const dtText=sv.state.collectedAt?formatDatetimeJa(sv.state.collectedAt):formatDatetimeJa(new Date().toISOString().slice(0,16));
   const items=[
     {label:'防犯登録',val:regText,status:'ok'},
     {label:'自転車の状態',val:sv.state.conditions.length?sv.state.conditions.join('、'):'（選択なし）',status:sv.state.conditions.length?'ok':'warn'},
     {label:'現在地',val:sv.state.lat?`取得済み（±${sv.state.locationAccuracy}m）`:'未取得',status:sv.state.lat?'ok':'warn'},
+    {label:'回収日時',val:dtText,status:'ok'},
     {label:'保管場所',val:loc?loc.name:'（未選択）',status:loc?'ok':'missing'},
+    {label:'メモ',val:sv.state.notes||'（なし）',status:'ok'},
   ];
   const icons={ok:'✅',warn:'⚠️',missing:'❌'};
   card.innerHTML+=`<p class="sv-step-hint">入力内容を確認して「保存する」を押してください。</p>
@@ -937,14 +951,17 @@ function svRenderConfirm(card) {
 async function svSave(){
   if(!sv.state.storageId){toast('⚠️ 保管場所を選んでください');sv.currentStep=svActiveSteps().findIndex(s=>s.id==='storage');svRenderCurrentStep();return;}
   try{
+    const collectedAt = sv.state.collectedAt
+      ? new Date(sv.state.collectedAt).toISOString()
+      : new Date().toISOString();
     await saveRecord({
       hasRegistration:sv.state.hasReg||'unknown',
       registrationNumber:sv.state.regNumber||'',photoDataUrl:sv.state.photoDataUrl||null,
       ocrPrediction:sv.state.ocrPrediction||'',inputMethod:sv.state.inputMethod||'manual',
-      conditions:sv.state.conditions,conditionNote:'',
+      conditions:sv.state.conditions,conditionNote:sv.state.conditionNote||'',
       lat:sv.state.lat,lng:sv.state.lng,locationAccuracy:sv.state.locationAccuracy,
-      locationNote:'',collectedAt:new Date().toISOString(),
-      storageLocationId:sv.state.storageId,notes:'',
+      locationNote:'',collectedAt,
+      storageLocationId:sv.state.storageId,notes:sv.state.notes||'',
     });
     const count = await countTodayRecords();
     const loc = STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
