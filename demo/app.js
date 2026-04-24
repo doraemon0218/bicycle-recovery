@@ -132,38 +132,127 @@ function setMode(mode) {
 }
 
 function renderSettingsPages(mode) {
+  const modeCards = (activeMode) => `
+    <div class="${activeMode==='silver' ? 'sv-mode-cards' : 'mode-cards'}">
+      <button class="${activeMode==='silver' ? `sv-mode-card${mode==='normal'?' active-mode':''}` : `mode-card${mode==='normal'?' active-mode':''}`}" onclick="setMode('normal')">
+        <span class="${activeMode==='silver'?'sv-mode-card-icon':'mode-card-icon'}">💻</span>
+        <span>
+          <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">通常版</div>
+          <div class="${activeMode==='silver'?'sv-mode-card-desc':'mode-card-desc'}">スタンダードな操作画面<br>CSV出力・検索機能つき</div>
+        </span>
+        ${mode==='normal' ? `<span class="${activeMode==='silver'?'sv-mode-card-check':'mode-card-check'}">✅</span>` : ''}
+      </button>
+      <button class="${activeMode==='silver' ? `sv-mode-card${mode==='silver'?' active-silver':''}` : `mode-card${mode==='silver'?' active-silver':''}`}" onclick="setMode('silver')">
+        <span class="${activeMode==='silver'?'sv-mode-card-icon':'mode-card-icon'}">🌟</span>
+        <span>
+          <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">シルバー版</div>
+          <div class="${activeMode==='silver'?'sv-mode-card-desc':'mode-card-desc'}">大きな文字・ボタン<br>1ステップずつ丁寧に案内</div>
+        </span>
+        ${mode==='silver' ? `<span class="${activeMode==='silver'?'sv-mode-card-check':'mode-card-check'}">✅</span>` : ''}
+      </button>
+    </div>`;
+
+  // GPS permission card HTML (rendered for both modes)
+  const gpsCard = (sv) => `
+    <div class="${sv ? 'sv-gps-perm-card' : 'gps-perm-card'}">
+      <div class="${sv ? 'sv-perm-title' : 'perm-title'}">📍 位置情報の許可</div>
+      <p class="${sv ? 'sv-perm-desc' : 'perm-desc'}">
+        自転車を回収した場所を記録するために使用します。<br>
+        GPSは衛星を使うため、<strong>ネット接続がなくても動作します。</strong>
+      </p>
+      <div id="${sv?'sv':'n'}GpsStatus" class="gps-status unknown">
+        <span class="gps-status-icon">─</span>
+        <span class="gps-status-text">まだ確認していません</span>
+      </div>
+      <button id="${sv?'sv':'n'}GpsPermBtn" class="${sv ? 'sv-gps-perm-btn' : 'gps-perm-btn'}">
+        📍 位置情報を許可する
+      </button>
+      <div id="${sv?'sv':'n'}GpsPermHint" class="gps-perm-hint" style="display:none;"></div>
+    </div>`;
+
   const html = (activeMode) => `
     <div class="${activeMode==='silver' ? 'sv-settings-wrap' : 'settings-section'}">
       <div class="${activeMode==='silver' ? 'sv-settings-title' : 'settings-title'}">⚙️ 設定</div>
-      <div class="${activeMode==='silver' ? 'sv-settings-desc' : 'settings-desc'}">画面の種類を切り替えられます。</div>
-      <div class="${activeMode==='silver' ? '' : ''}">
-        <div class="current-mode-badge" style="${activeMode==='silver'?'font-size:0.9rem;padding:5px 14px;':''}">
-          現在：${activeMode==='normal' ? '通常版' : 'シルバー版'}
-        </div>
+      <div class="current-mode-badge" style="${activeMode==='silver'?'font-size:0.9rem;padding:5px 14px;':''}">
+        現在：${activeMode==='normal' ? '通常版' : 'シルバー版'}
       </div>
-      <div class="${activeMode==='silver' ? 'sv-mode-cards' : 'mode-cards'}">
-        <button class="${activeMode==='silver' ? `sv-mode-card${mode==='normal'?' active-mode':''}` : `mode-card${mode==='normal'?' active-mode':''}`}" onclick="setMode('normal')">
-          <span class="${activeMode==='silver'?'sv-mode-card-icon':'mode-card-icon'}">💻</span>
-          <span>
-            <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">通常版</div>
-            <div class="${activeMode==='silver'?'sv-mode-card-desc':'mode-card-desc'}">スタンダードな操作画面<br>CSV出力・検索機能つき</div>
-          </span>
-          ${mode==='normal' ? `<span class="${activeMode==='silver'?'sv-mode-card-check':'mode-card-check'}">✅</span>` : ''}
-        </button>
-        <button class="${activeMode==='silver' ? `sv-mode-card${mode==='silver'?' active-silver':''}` : `mode-card${mode==='silver'?' active-silver':''}`}" onclick="setMode('silver')">
-          <span class="${activeMode==='silver'?'sv-mode-card-icon':'mode-card-icon'}">🌟</span>
-          <span>
-            <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">シルバー版</div>
-            <div class="${activeMode==='silver'?'sv-mode-card-desc':'mode-card-desc'}">大きな文字・ボタン<br>1ステップずつ丁寧に案内</div>
-          </span>
-          ${mode==='silver' ? `<span class="${activeMode==='silver'?'sv-mode-card-check':'mode-card-check'}">✅</span>` : ''}
-        </button>
-      </div>
+      ${modeCards(activeMode)}
+      ${gpsCard(activeMode==='silver')}
     </div>`;
+
   const nSettings = $('nSettingsContent');
   const svSettings = $('svSettingsContent');
-  if (nSettings) nSettings.innerHTML = html('normal');
-  if (svSettings) svSettings.innerHTML = html('silver');
+  if (nSettings) { nSettings.innerHTML = html('normal'); attachGpsPermBtn('n'); }
+  if (svSettings) { svSettings.innerHTML = html('silver'); attachGpsPermBtn('sv'); }
+}
+
+// iOSを含む全ブラウザ対応のGPS許可フロー
+// iOS Safari は navigator.permissions.query 非対応のため、
+// getCurrentPosition を呼び出すことが唯一の許可トリガー手段
+function attachGpsPermBtn(prefix) {
+  const btn    = $(`${prefix}GpsPermBtn`);
+  const status = $(`${prefix}GpsStatus`);
+  const hint   = $(`${prefix}GpsPermHint`);
+  if (!btn || !status) return;
+
+  const isSilver = prefix === 'sv';
+
+  // iOS 非対応のため navigator.permissions は補助チェックのみ
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      if (result.state === 'granted') setGranted();
+      else if (result.state === 'denied') setDenied();
+      result.addEventListener('change', () => {
+        if (result.state === 'granted') setGranted();
+        else if (result.state === 'denied') setDenied();
+      });
+    }).catch(() => {});
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = '⏳ 確認中…';
+    try {
+      // maximumAge: Infinity でキャッシュも受け入れ → 許可ダイアログを素早く処理
+      await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject,
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: Infinity });
+      });
+      setGranted();
+    } catch (err) {
+      if (err.code === 1) {
+        setDenied();
+      } else {
+        // POSITION_UNAVAILABLE / TIMEOUT → 許可は得られている（屋外でのみ測位可能）
+        setGranted(true);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function setGranted(outdoorOnly = false) {
+    status.className = 'gps-status granted';
+    status.innerHTML = `<span class="gps-status-icon">✅</span><span class="gps-status-text">位置情報が<strong>許可</strong>されています</span>`;
+    btn.textContent = '✅ 許可済み（再確認）';
+    btn.className = btn.className.replace(isSilver ? 'sv-gps-perm-btn' : 'gps-perm-btn', isSilver ? 'sv-gps-perm-btn granted' : 'gps-perm-btn granted');
+    if (outdoorOnly) {
+      hint.style.display = 'block';
+      hint.textContent = '✅ 許可は取得済みです。GPS信号は屋外でボタンを押すと取得できます。';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  function setDenied() {
+    status.className = 'gps-status denied';
+    status.innerHTML = `<span class="gps-status-icon">❌</span><span class="gps-status-text">位置情報が<strong>拒否</strong>されています</span>`;
+    btn.textContent = '🔄 もう一度試す';
+    hint.style.display = 'block';
+    hint.innerHTML = isSilver
+      ? `<strong>【iPhoneの場合】</strong><br>「設定」→「プライバシーとセキュリティ」→「位置情報サービス」→「Safari」を「このAppの使用中」に変更してください。<br><br><strong>【Androidの場合】</strong><br>「設定」→「アプリ」→「ブラウザ」→「権限」→「位置情報」を許可してください。`
+      : `<b>iPhone:</b> 設定 → プライバシーとセキュリティ → 位置情報サービス → Safari → 「このAppの使用中」<br><b>Android:</b> 設定 → アプリ → ブラウザ → 権限 → 位置情報を許可`;
+  }
 }
 
 function updateSyncBadge() {

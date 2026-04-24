@@ -183,6 +183,59 @@ textarea { resize: vertical; }
 .export-summary { background: var(--accent-light); border-radius: 8px; padding: 10px 14px; font-size: 0.88rem; color: var(--accent); font-weight: 600; }
 .storage-info { font-size: 0.82rem; color: var(--text-muted); padding: 8px 0; line-height: 1.8; }
 
+/* ─── GPS Permission (共通) ───────────────────── */
+.gps-perm-card {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1.5px solid var(--bd-strong);
+  border-radius: 14px;
+}
+.perm-title { font-size: 1rem; font-weight: 700; color: var(--header); margin-bottom: 6px; }
+.perm-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 14px; }
+.gps-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 12px;
+  font-size: 0.88rem; font-weight: 600;
+}
+.gps-status.unknown  { background: #f7fafc; color: var(--text-muted); border: 1.5px solid var(--bd); }
+.gps-status.granted  { background: var(--ok-bg); color: var(--ok); border: 1.5px solid #c6f6d5; }
+.gps-status.denied   { background: var(--danger-bg); color: var(--danger); border: 1.5px solid #fed7d7; }
+.gps-status-icon { font-size: 1.1rem; flex-shrink: 0; }
+.gps-perm-btn {
+  width: 100%; background: #2b6cb0; color: #fff; border: none;
+  padding: 13px; border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background .15s;
+}
+.gps-perm-btn:active { filter: brightness(.9); }
+.gps-perm-btn.granted { background: #276749; }
+.gps-perm-hint {
+  margin-top: 10px; padding: 10px 14px;
+  background: var(--warn-bg); border: 1.5px solid #fbd38d; border-radius: 10px;
+  font-size: 0.8rem; color: var(--warn); line-height: 1.6;
+}
+.gps-perm-hint b { font-weight: 700; }
+
+/* GPS Permission シルバー版 */
+.sv-gps-perm-card {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f8fafc;
+  border: 2px solid var(--bd-strong);
+  border-radius: 18px;
+}
+.sv-perm-title { font-size: 1.15rem; font-weight: 800; color: #1a2e4a; margin-bottom: 8px; }
+.sv-perm-desc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 18px; }
+.sv-gps-perm-btn {
+  width: 100%; background: #2b6cb0; color: #fff; border: none;
+  padding: 20px; border-radius: 14px; font-size: 1.1rem; font-weight: 800;
+  cursor: pointer; font-family: inherit; display: flex;
+  align-items: center; justify-content: center; gap: 8px;
+  transition: background .15s;
+}
+.sv-gps-perm-btn:active { filter: brightness(.9); }
+.sv-gps-perm-btn.granted { background: #276749; }
+
 /* Settings (通常版) */
 .settings-section { padding: 12px; }
 .settings-title { font-size: 1rem; font-weight: 700; color: var(--header); margin-bottom: 4px; }
