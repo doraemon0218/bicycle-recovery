@@ -264,7 +264,12 @@ function updateSyncBadge() {
 }
 
 // ── 通常版 ─────────────────────────────────────
-const ns = { hasReg:'yes', photoDataUrl:null, lat:null, lng:null, locationAccuracy:null };
+const ns = {
+  hasReg: 'yes', photoDataUrl: null,
+  lat: null, lng: null, locationAccuracy: null,
+  ocrPrediction: '',   // OCRが返した生テキスト（学習データ用）
+  inputMethod: 'manual', // 'ocr_accepted' | 'ocr_corrected' | 'manual'
+};
 
 function initNormalApp() {
   buildNormalConditionGrid();
@@ -302,15 +307,39 @@ function initRegSection() {
       $('regSection').style.display = ns.hasReg==='yes' ? 'block' : 'none';
     });
   });
+  // リアルタイム照合チェック
+  $('regNumber')?.addEventListener('input', () => {
+    // ユーザーが編集 → ocr_corrected に変更
+    if (ns.inputMethod === 'ocr_accepted') ns.inputMethod = 'ocr_corrected';
+    updateRegMatch();
+  });
+  $('regNumberConfirm')?.addEventListener('input', updateRegMatch);
+}
+
+function updateRegMatch() {
+  const v1 = ($('regNumber')?.value || '').trim();
+  const v2 = ($('regNumberConfirm')?.value || '').trim();
+  const el = $('regMatchStatus');
+  if (!el) return;
+  if (!v1 || !v2) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  if (v1 === v2) {
+    el.className = 'reg-match ok'; el.textContent = '✅ 一致しました';
+  } else {
+    el.className = 'reg-match error'; el.textContent = '❌ 一致しません。どちらかを修正してください。';
+  }
 }
 
 function initPhotoCapture() {
   $('shootBtn').addEventListener('click', ()=>$('photoInput').click());
   $('retakeBtn').addEventListener('click', ()=>{
-    ns.photoDataUrl=null;
+    ns.photoDataUrl=null; ns.ocrPrediction=''; ns.inputMethod='manual';
     $('photoPreview').style.display='none'; $('photoPlaceholder').style.display='flex';
     $('retakeBtn').style.display='none'; $('shootBtn').style.display='block';
-    $('ocrStatus').style.display='none'; $('regNumber').value='';
+    $('ocrStatus').style.display='none';
+    $('regNumber').value=''; $('regNumberConfirm').value='';
+    $('regMatchStatus').style.display='none';
+    const badge=$('regOcrBadge'); if(badge) badge.style.display='none';
   });
   $('photoInput').addEventListener('change', async e=>{
     const file=e.target.files[0]; if(!file) return;
@@ -322,10 +351,17 @@ function initPhotoCapture() {
       canvas.style.display='block'; $('photoPlaceholder').style.display='none';
       $('retakeBtn').style.display='flex'; $('shootBtn').style.display='none';
     }; img.src=dataUrl;
+    // 確認フィールドをリセット（再撮影時）
+    $('regNumberConfirm').value=''; $('regMatchStatus').style.display='none';
     const text=await runOCR(dataUrl,(type,msg)=>{
       const el=$('ocrStatus'); el.className=`ocr-status ${type}`; el.textContent=msg; el.style.display='block';
     });
-    if(text) $('regNumber').value=text;
+    if(text){
+      $('regNumber').value=text;
+      ns.ocrPrediction=text;
+      ns.inputMethod='ocr_accepted'; // ユーザーが編集すれば ocr_corrected へ
+      const badge=$('regOcrBadge'); if(badge) badge.style.display='inline';
+    }
     e.target.value='';
   });
 }
@@ -392,10 +428,19 @@ function initSave() {
     const collectedAt=$('collectedAt').value, storageId=$('storageLocation').value;
     if(!collectedAt){toast('⚠️ 回収日時を入力してください');return;}
     if(!storageId){toast('⚠️ 保管場所を選択してください');return;}
+    // 防犯登録番号：2回入力の照合チェック
+    if(ns.hasReg==='yes'){
+      const v1=($('regNumber')?.value||'').trim();
+      const v2=($('regNumberConfirm')?.value||'').trim();
+      if(v1 && v2 && v1!==v2){toast('⚠️ 登録番号の1回目と2回目が一致しません');return;}
+      if(v1 && !v2){toast('⚠️ 登録番号の確認（2回目）を入力してください');return;}
+    }
     await saveRecord({
       hasRegistration:ns.hasReg,
-      registrationNumber:ns.hasReg==='yes'?($('regNumber').value.trim()||''):'',
+      registrationNumber:ns.hasReg==='yes'?($('regNumber')?.value.trim()||''):'',
       photoDataUrl:ns.hasReg==='yes'?(ns.photoDataUrl||null):null,
+      ocrPrediction:ns.ocrPrediction,
+      inputMethod:ns.inputMethod,
       conditions:getSelectedConditions(), conditionNote:$('conditionNote').value.trim(),
       lat:ns.lat, lng:ns.lng, locationAccuracy:ns.locationAccuracy,
       locationNote:$('locationNote').value.trim(),
@@ -414,11 +459,16 @@ async function saveRecord(data) {
 
 function resetNormalForm(){
   ns.hasReg='yes';ns.photoDataUrl=null;ns.lat=null;ns.lng=null;ns.locationAccuracy=null;
+  ns.ocrPrediction='';ns.inputMethod='manual';
   document.querySelectorAll('#hasRegCtrl .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   $('regSection').style.display='block';
   $('photoPreview').style.display='none';$('photoPlaceholder').style.display='flex';
   $('retakeBtn').style.display='none';$('shootBtn').style.display='block';
-  $('ocrStatus').style.display='none';$('regNumber').value='';
+  $('ocrStatus').style.display='none';
+  $('regNumber').value='';
+  if($('regNumberConfirm'))$('regNumberConfirm').value='';
+  if($('regMatchStatus'))$('regMatchStatus').style.display='none';
+  const badge=$('regOcrBadge');if(badge)badge.style.display='none';
   document.querySelectorAll('#conditionGrid input').forEach(cb=>{cb.checked=false;cb.closest('label').classList.remove('checked');});
   $('conditionNote').value='';$('locationStatus').style.display='none';
   $('mapsLink').style.display='none';$('locationNote').value='';
@@ -464,6 +514,36 @@ function initExport(){
   $('exportBtn')?.addEventListener('click',()=>exportCSV(false));
   $('exportAllBtn')?.addEventListener('click',()=>exportCSV(true));
   $('clearSyncedBtn')?.addEventListener('click',clearSynced);
+  $('mlExportBtn')?.addEventListener('click',exportMLData);
+  renderMLSummary();
+}
+
+async function renderMLSummary(){
+  const records=await dbGetAll();
+  const ml=records.filter(r=>r.photoDataUrl&&r.hasRegistration==='yes');
+  const el=$('mlSummary');
+  if(el)el.textContent=`写真付き防犯登録あり: ${ml.length}件（学習対象）`;
+}
+
+async function exportMLData(){
+  const records=await dbGetAll();
+  const ml=records
+    .filter(r=>r.photoDataUrl&&r.hasRegistration==='yes')
+    .map(r=>({
+      id:r.id,
+      collectedAt:r.collectedAt,
+      ocrPrediction:r.ocrPrediction||'',
+      confirmedNumber:r.registrationNumber||'',
+      inputMethod:r.inputMethod||'unknown',
+      photoDataUrl:r.photoDataUrl,  // base64 JPEG
+    }));
+  if(!ml.length){toast('学習データがありません（写真付き記録が必要）');return;}
+  const blob=new Blob([JSON.stringify(ml,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`ocr_training_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+  toast(`✅ ${ml.length}件の学習データを出力しました`);
 }
 function getExportRange(){
   return{from:$('exportFrom')?.value?new Date($('exportFrom').value+'T00:00:00'):null,
@@ -534,7 +614,12 @@ window.deleteRecord=async function(id){if(!confirm('削除しますか？'))retu
 // ═══════════════════════════════════════════════
 const sv = {
   currentStep: 0,
-  state: { hasReg:null, photoDataUrl:null, regNumber:'', conditions:[], lat:null, lng:null, locationAccuracy:null, storageId:null },
+  state: {
+    hasReg:null, photoDataUrl:null,
+    regNumber:'', regNumberConfirm:'',
+    ocrPrediction:'', inputMethod:'manual',
+    conditions:[], lat:null, lng:null, locationAccuracy:null, storageId:null
+  },
 };
 const SV_STEPS = [
   { id:'reg',       title:'防犯登録シールについて',     render:svRenderReg },
@@ -568,7 +653,7 @@ function svInit() {
 
 function svGoHome() {
   sv.currentStep = 0;
-  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',conditions:[],lat:null,lng:null,locationAccuracy:null,storageId:null};
+  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],lat:null,lng:null,locationAccuracy:null,storageId:null};
   // Switch to home tab
   document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
@@ -604,6 +689,11 @@ function svPrev(){if(sv.currentStep>0){sv.currentStep--;svRenderCurrentStep();}}
 function svValidate(id,errEl){
   const show=msg=>{if(errEl){errEl.textContent='⚠️ '+msg;errEl.classList.add('show');}else toast('⚠️ '+msg);return false;};
   if(id==='reg'&&sv.state.hasReg===null)return show('シールの有無を選んでください');
+  if(id==='photo'){
+    const v1=sv.state.regNumber.trim(), v2=sv.state.regNumberConfirm.trim();
+    if(v1&&!v2)return show('確認のため、番号をもう一度入力してください');
+    if(v1&&v2&&v1!==v2)return show('1回目と2回目の番号が一致しません。確認して修正してください。');
+  }
   if(id==='storage'&&!sv.state.storageId)return show('保管場所を選んでください');
   return true;
 }
@@ -630,6 +720,16 @@ function svRenderReg(card) {
   });
 }
 
+function svUpdateRegMatch() {
+  const v1=(sv.state.regNumber||'').trim();
+  const v2=(sv.state.regNumberConfirm||'').trim();
+  const el=$('svRegMatchStatus'); if(!el) return;
+  if(!v1||!v2){el.style.display='none';return;}
+  el.style.display='block';
+  if(v1===v2){el.className='reg-match ok';el.textContent='✅ 一致しました';}
+  else{el.className='reg-match error';el.textContent='❌ 一致しません。どちらかを修正してください。';}
+}
+
 function svRenderPhoto(card) {
   const hasPhoto=!!sv.state.photoDataUrl;
   card.innerHTML+=`<p class="sv-step-hint">シールに近づいて、できるだけ真正面から撮影してください。番号を自動で読み取ります。</p>
@@ -640,15 +740,23 @@ function svRenderPhoto(card) {
     <input type="file" id="svPhotoInput" accept="image/*" capture="environment" style="display:none;" />
     <div class="sv-error-msg" id="svOcrStatus" style="display:none;background:#ebf4ff;border-color:#bee3f8;color:#2b6cb0;"></div>
     ${hasPhoto?`<div class="sv-ocr-box">
-      <div class="sv-ocr-label">📋 読み取った番号（修正できます）</div>
-      <input class="sv-ocr-input" id="svRegInput" type="text" value="${escHtml(sv.state.regNumber)}" inputmode="text" autocomplete="off" placeholder="例: 東京 12345678" />
+      <div class="sv-ocr-label">📋 読み取った番号（1回目・修正できます）</div>
+      <div class="input-with-badge">
+        <input class="sv-ocr-input" id="svRegInput" type="text" value="${escHtml(sv.state.regNumber)}" inputmode="text" autocomplete="off" placeholder="例: 東京 12345678" />
+        <span id="svOcrBadge" class="ocr-badge"${sv.state.ocrPrediction?'':' style="display:none;"'}>OCR自動入力</span>
+      </div>
       <div class="sv-ocr-hint">文字が違う場合はここで直接なおしてください</div>
+      <div class="sv-ocr-label" style="margin-top:14px;">📋 番号をもう一度入力（確認）</div>
+      <input class="sv-ocr-input" id="svRegConfirmInput" type="text" value="${escHtml(sv.state.regNumberConfirm)}" inputmode="text" autocomplete="off" placeholder="同じ番号をもう一度入力" />
+      <div id="svRegMatchStatus" class="reg-match" style="display:none;"></div>
     </div>`:''}
     <div class="sv-error-msg" id="svErr"></div>`;
   $('svCameraBtn').addEventListener('click',()=>$('svPhotoInput').click());
   $('svPhotoInput').addEventListener('change',async e=>{
     const file=e.target.files[0]; if(!file) return;
-    const dataUrl=await resizeImage(file); sv.state.photoDataUrl=dataUrl; sv.state.regNumber='';
+    const dataUrl=await resizeImage(file);
+    sv.state.photoDataUrl=dataUrl; sv.state.regNumber=''; sv.state.regNumberConfirm='';
+    sv.state.ocrPrediction=''; sv.state.inputMethod='manual';
     svRenderCurrentStep();
     const text=await runOCR(dataUrl,(type,msg)=>{
       const el=$('svOcrStatus');if(!el)return;
@@ -658,12 +766,25 @@ function svRenderPhoto(card) {
       else{el.style.background='#fff5f5';el.style.borderColor='#fed7d7';el.style.color='#c53030';}
       el.classList.add('show'); el.textContent=msg;
     });
-    sv.state.regNumber=text;
-    const inp=$('svRegInput'); if(inp) inp.value=text;
+    if(text){
+      sv.state.regNumber=text; sv.state.ocrPrediction=text; sv.state.inputMethod='ocr_accepted';
+      const inp=$('svRegInput'); if(inp) inp.value=text;
+      const badge=$('svOcrBadge'); if(badge) badge.style.display='inline';
+    }
     e.target.value='';
   });
   const inp=$('svRegInput');
-  if(inp) inp.addEventListener('input',()=>{sv.state.regNumber=inp.value;});
+  if(inp) inp.addEventListener('input',()=>{
+    sv.state.regNumber=inp.value;
+    if(sv.state.ocrPrediction && inp.value!==sv.state.ocrPrediction) sv.state.inputMethod='ocr_corrected';
+    svUpdateRegMatch();
+  });
+  const inp2=$('svRegConfirmInput');
+  if(inp2) inp2.addEventListener('input',()=>{
+    sv.state.regNumberConfirm=inp2.value;
+    svUpdateRegMatch();
+  });
+  svUpdateRegMatch();
 }
 
 function svRenderCondition(card) {

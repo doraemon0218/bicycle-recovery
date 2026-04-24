@@ -54,9 +54,16 @@
                   <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" />
                 </div>
                 <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
-                <label>防犯登録番号</label>
-                <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678（手動修正可）" autocomplete="off" />
+                <label>防犯登録番号（1回目）<span class="req">*</span></label>
+                <div class="input-with-badge">
+                  <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678" autocomplete="off" />
+                  <span id="regOcrBadge" class="ocr-badge" style="display:none;">OCR自動入力</span>
+                </div>
                 <p class="field-hint">撮影後に自動入力されます。違う場合は直接修正してください。</p>
+                <label>防犯登録番号（確認・2回目）<span class="req">*</span></label>
+                <input id="regNumberConfirm" type="text" inputmode="text" placeholder="同じ番号をもう一度入力" autocomplete="off" />
+                <div id="regMatchStatus" class="reg-match" style="display:none;"></div>
+                <p class="field-hint">2回の入力が一致したときに番号が確定されます。写真と入力データはOCR精度向上に活用されます。</p>
               </div>
             </div>
           </div>
@@ -124,6 +131,12 @@
             <p class="field-hint">端末のストレージに保存されています。</p>
             <div id="storageInfo" class="storage-info"></div>
             <button id="clearSyncedBtn" class="btn-danger-outline">送信済みデータを削除</button>
+          </div>
+          <div class="card">
+            <h2>📊 OCR学習データ出力</h2>
+            <p class="field-hint">写真・OCR予測・確定番号のペアデータです。将来の機械学習モデル訓練に使用します。</p>
+            <div id="mlSummary" class="export-summary" style="margin-bottom:10px;"></div>
+            <button id="mlExportBtn" class="btn-secondary" style="margin-top:0;">📤 学習データをJSON出力</button>
           </div>
         </section>
 
