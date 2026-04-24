@@ -12,49 +12,28 @@
   <body>
     <div id="toast" class="toast"></div>
 
-    <!-- ========== MODE SELECT (初回) ========== -->
-    <div id="modeSelectPage" class="mode-select-page">
-      <div class="mode-select-inner">
-        <div class="mode-logo">🚲</div>
-        <h1 class="mode-title">自転車回収記録</h1>
-        <p class="mode-sub">画面の種類を選んでください</p>
-        <button id="normalModeBtn" class="mode-btn">
-          <span class="mode-icon">💻</span>
-          <span class="mode-name">通常版</span>
-          <span class="mode-desc">スタンダードな操作画面</span>
-        </button>
-        <button id="silverModeBtn" class="mode-btn silver-btn">
-          <span class="mode-icon">🌟</span>
-          <span class="mode-name">シルバー版</span>
-          <span class="mode-desc">大きな文字・ボタン<br>1ステップずつ丁寧に案内</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- ========== 通常版 UI ========== -->
+    <!-- ══════════════ 通常版 ══════════════ -->
     <div id="normalApp" style="display:none;">
-      <header>
-        <div class="header-inner">
-          <div class="header-titles">
+      <header class="n-header">
+        <div class="n-header-inner">
+          <div class="n-header-titles">
             <h1>🚲 自転車回収記録</h1>
-            <p class="sub">不法駐輪回収・警察提出管理</p>
+            <p class="n-sub">不法駐輪回収・警察提出管理</p>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-            <div id="syncBadge" class="sync-badge offline">● オフライン</div>
-            <button id="switchToSilverBtn" class="mode-switch-btn">シルバー版へ</button>
-          </div>
+          <div id="syncBadge" class="sync-badge offline">● オフライン</div>
         </div>
       </header>
 
-      <nav class="tab-nav">
-        <button class="tab-btn active" data-page="register">登録</button>
-        <button class="tab-btn" data-page="list">一覧</button>
-        <button class="tab-btn" data-page="export">CSV出力</button>
+      <nav class="n-tab-nav">
+        <button class="n-tab active" data-n-tab="register">📝 登録</button>
+        <button class="n-tab" data-n-tab="list">📋 一覧</button>
+        <button class="n-tab" data-n-tab="export">📥 CSV</button>
+        <button class="n-tab" data-n-tab="settings">⚙️ 設定</button>
       </nav>
 
-      <main>
-        <!-- REGISTER -->
-        <section id="registerPage" class="page active">
+      <main class="n-main">
+        <!-- 登録 -->
+        <section id="nRegisterTab" class="n-page active">
           <div class="card">
             <h2>防犯登録</h2>
             <div class="form-stack">
@@ -65,7 +44,7 @@
                 <button class="seg-btn" data-value="unknown">不明</button>
               </div>
               <div id="regSection">
-                <div class="photo-zone" id="photoZone">
+                <div class="photo-zone">
                   <canvas id="photoPreview" style="display:none;"></canvas>
                   <div id="photoPlaceholder" class="photo-placeholder"><span>シールの写真をここに表示</span></div>
                   <div class="photo-btns">
@@ -77,21 +56,19 @@
                 <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
                 <label>防犯登録番号</label>
                 <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678（手動修正可）" autocomplete="off" />
-                <p class="field-hint">撮影後に自動入力されます。文字が違う場合は直接修正してください。</p>
+                <p class="field-hint">撮影後に自動入力されます。違う場合は直接修正してください。</p>
               </div>
             </div>
           </div>
-
           <div class="card">
             <h2>車体状況</h2>
             <div class="form-stack">
               <label>状態（複数選択可）</label>
               <div class="condition-grid" id="conditionGrid"></div>
               <label>追記・備考</label>
-              <textarea id="conditionNote" rows="2" placeholder="その他の状況（色・メーカー・特徴など）"></textarea>
+              <textarea id="conditionNote" rows="2" placeholder="色・メーカー・特徴など"></textarea>
             </div>
           </div>
-
           <div class="card">
             <h2>回収位置</h2>
             <div class="form-stack">
@@ -102,7 +79,6 @@
               <input id="locationNote" type="text" placeholder="例: ○○駅東口 駐輪禁止エリア" />
             </div>
           </div>
-
           <div class="card">
             <h2>回収情報</h2>
             <div class="form-stack">
@@ -113,37 +89,31 @@
               <p id="storageAddress" class="field-hint storage-addr"></p>
             </div>
           </div>
-
           <div class="card">
             <h2>その他の備考</h2>
             <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>
           </div>
-
           <div class="form-actions">
             <button id="saveBtn" class="btn-primary btn-large">💾 保存する</button>
           </div>
         </section>
 
-        <!-- LIST -->
-        <section id="listPage" class="page">
+        <!-- 一覧 -->
+        <section id="nListTab" class="n-page">
           <div class="list-toolbar">
             <input id="searchInput" type="search" placeholder="番号・場所で検索…" />
             <select id="filterStorage"><option value="">全保管場所</option></select>
           </div>
-          <div id="recordList" class="record-list">
-            <p class="muted center">登録されたデータがありません。</p>
-          </div>
+          <div id="recordList" class="record-list"><p class="muted center">登録されたデータがありません。</p></div>
         </section>
 
-        <!-- EXPORT -->
-        <section id="exportPage" class="page">
+        <!-- CSV -->
+        <section id="nExportTab" class="n-page">
           <div class="card">
             <h2>CSV出力（警察提出用）</h2>
             <div class="form-stack">
-              <label>期間（開始）</label>
-              <input id="exportFrom" type="date" />
-              <label>期間（終了）</label>
-              <input id="exportTo" type="date" />
+              <label>期間（開始）</label><input id="exportFrom" type="date" />
+              <label>期間（終了）</label><input id="exportTo" type="date" />
               <div class="export-summary" id="exportSummary"></div>
               <button id="exportBtn" class="btn-primary btn-large">📥 CSVダウンロード</button>
               <button id="exportAllBtn" class="btn-secondary">全件ダウンロード</button>
@@ -151,63 +121,67 @@
           </div>
           <div class="card">
             <h2>データ管理</h2>
-            <p class="field-hint">端末のストレージに保存されています。端末を変える際はCSVをバックアップしてください。</p>
+            <p class="field-hint">端末のストレージに保存されています。</p>
             <div id="storageInfo" class="storage-info"></div>
             <button id="clearSyncedBtn" class="btn-danger-outline">送信済みデータを削除</button>
           </div>
         </section>
+
+        <!-- 設定 -->
+        <section id="nSettingsTab" class="n-page">
+          <div id="nSettingsContent"></div>
+        </section>
       </main>
     </div>
 
-    <!-- ========== シルバー版 UI ========== -->
+    <!-- ══════════════ シルバー版 ══════════════ -->
     <div id="silverApp" style="display:none;">
       <header class="sv-header">
         <div class="sv-header-inner">
-          <div>
+          <div class="sv-header-left">
             <div class="sv-header-title">🚲 自転車回収記録</div>
-            <div class="sv-header-sub">シルバー版</div>
+            <div class="sv-header-badge">シルバー版</div>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-            <div id="svSyncBadge" class="sync-badge offline">● オフライン</div>
-            <button id="switchToNormalBtn" class="mode-switch-btn">通常版へ</button>
-          </div>
+          <div id="svSyncBadge" class="sync-badge offline">● オフライン</div>
         </div>
       </header>
 
       <nav class="sv-tab-nav">
-        <button class="sv-tab active" data-sv-tab="register">📝 登録する</button>
-        <button class="sv-tab" data-sv-tab="list">📋 記録を見る</button>
+        <button class="sv-tab active" data-sv-tab="home">🏠 ホーム</button>
+        <button class="sv-tab" data-sv-tab="list">📋 記録一覧</button>
+        <button class="sv-tab" data-sv-tab="settings">⚙️ 設定</button>
       </nav>
 
-      <!-- Silver: Registration wizard -->
-      <div id="svRegisterTab" class="sv-tab-content active">
-        <!-- Progress -->
+      <!-- ホーム（登録ウィザード） -->
+      <div id="svHomeTab" class="sv-tab-content active">
         <div class="sv-progress-wrap">
+          <div class="sv-step-label" id="svStepLabel">ステップ 1 / 5</div>
           <div class="sv-progress-bar-bg">
             <div class="sv-progress-bar-fill" id="svProgressFill"></div>
           </div>
-          <div class="sv-step-label" id="svStepLabel">ステップ 1 / 5</div>
+          <button class="sv-reset-btn" id="svResetBtn" style="display:none;">🏠 最初から</button>
         </div>
-
-        <!-- Step content (rendered by JS) -->
         <div id="svStepContent" class="sv-step-content"></div>
-
-        <!-- Bottom nav -->
         <div class="sv-bottom-nav">
           <button id="svPrevBtn" class="sv-btn-back">← もどる</button>
           <button id="svNextBtn" class="sv-btn-next">つぎへ →</button>
         </div>
       </div>
 
-      <!-- Silver: List -->
+      <!-- 記録一覧 -->
       <div id="svListTab" class="sv-tab-content">
         <div id="svRecordList" class="sv-record-list">
           <p class="sv-muted">まだ記録がありません。</p>
         </div>
       </div>
+
+      <!-- 設定 -->
+      <div id="svSettingsTab" class="sv-tab-content">
+        <div id="svSettingsContent"></div>
+      </div>
     </div>
 
-    <!-- Modal (shared) -->
+    <!-- 詳細モーダル（共通） -->
     <div id="modal" class="modal" style="display:none;">
       <div class="modal-overlay" id="modalOverlay"></div>
       <div class="modal-box">
