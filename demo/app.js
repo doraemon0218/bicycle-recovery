@@ -702,6 +702,7 @@ window.deleteRecord=async function(id){if(!confirm('削除しますか？'))retu
 // ═══════════════════════════════════════════════
 const sv = {
   currentStep: 0,
+  liveClock: null,  // setInterval ID for the datetime step live clock
   state: {
     hasReg:null, photoDataUrl:null,
     regNumber:'', regNumberConfirm:'',
@@ -755,6 +756,7 @@ function svGoHome() {
 }
 
 function svRenderCurrentStep() {
+  clearInterval(sv.liveClock); sv.liveClock = null;
   const steps = svActiveSteps();
   const idx = sv.currentStep, total = steps.length;
   const step = steps[idx];
@@ -880,27 +882,52 @@ function svRenderNotes(card) {
 }
 
 function svRenderDatetime(card) {
-  function nowLocal(){
-    const now=new Date();
-    return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  function nowLocal() {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   }
-  if(!sv.state.collectedAt) sv.state.collectedAt=nowLocal();
-  card.innerHTML+=`<p class="sv-step-hint">回収した日時を確認してください。<br>今すぐ登録するなら「現在日時を設定」を押してください。</p>
-    <button class="sv-now-btn" id="svNowBtn">🕐 現在日時を設定</button>
-    <div class="sv-datetime-wrap">
-      <label class="sv-ocr-label" style="margin-bottom:6px;">日時を修正する場合</label>
-      <input class="sv-datetime-input" id="svDatetimeInput" type="datetime-local" value="${sv.state.collectedAt}" />
-    </div>
-    <div id="svDatetimeDisplay" class="sv-datetime-display">${formatDatetimeJa(sv.state.collectedAt)}</div>
+  // 常に現在時刻で初期化（ステップに来るたびに最新化）
+  sv.state.collectedAt = nowLocal();
+
+  card.innerHTML += `
+    <p class="sv-step-hint">現在の日時が自動で記録されます。<br>そのまま「つぎへ」を押してください。</p>
+    <div class="sv-live-clock" id="svLiveClock"></div>
+    <details class="sv-datetime-manual">
+      <summary>⚙️ 日時を手動で変更する場合</summary>
+      <div class="sv-datetime-wrap" style="margin-top:10px;">
+        <input class="sv-datetime-input" id="svDatetimeInput" type="datetime-local" value="${sv.state.collectedAt}" />
+      </div>
+    </details>
     <div class="sv-error-msg" id="svErr"></div>`;
-  $('svNowBtn').addEventListener('click',()=>{
-    sv.state.collectedAt=nowLocal();
-    $('svDatetimeInput').value=sv.state.collectedAt;
-    $('svDatetimeDisplay').textContent=formatDatetimeJa(sv.state.collectedAt);
+
+  // ライブクロック（毎秒更新）
+  function updateClock() {
+    const el = $('svLiveClock');
+    if (!el) { clearInterval(sv.liveClock); return; }
+    const now = new Date();
+    el.innerHTML =
+      `<div class="sv-clock-time">${now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>` +
+      `<div class="sv-clock-date">${now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</div>`;
+    // 手動変更中は自動更新しない
+    if (!$('svDatetimeInput')?.dataset.manual) {
+      sv.state.collectedAt = nowLocal();
+      if ($('svDatetimeInput')) $('svDatetimeInput').value = sv.state.collectedAt;
+    }
+  }
+  updateClock();
+  sv.liveClock = setInterval(updateClock, 1000);
+
+  // 手動変更時はライブ更新を停止
+  card.querySelector('#svDatetimeInput')?.addEventListener('input', e => {
+    e.target.dataset.manual = '1';
+    sv.state.collectedAt = e.target.value;
   });
-  $('svDatetimeInput').addEventListener('input',e=>{
-    sv.state.collectedAt=e.target.value;
-    $('svDatetimeDisplay').textContent=formatDatetimeJa(sv.state.collectedAt);
+  // details を開いたら手動モードの注意表示
+  card.querySelector('.sv-datetime-manual')?.addEventListener('toggle', function() {
+    if (!this.open) {
+      // 閉じたら自動モードに戻す
+      delete card.querySelector('#svDatetimeInput')?.dataset.manual;
+    }
   });
 }
 

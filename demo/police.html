@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a3a6b" />
+  <title>警察処理ポータル</title>
+  <link rel="stylesheet" href="./police.css" />
+</head>
+<body>
+  <div id="pToast" class="p-toast"></div>
+
+  <header class="p-header">
+    <a href="./index.html" class="p-home-btn">← トップ</a>
+    <div class="p-header-title">👮 警察処理ポータル</div>
+  </header>
+
+  <!-- ── Import view ── -->
+  <div id="viewImport" class="p-view">
+    <div class="p-import-wrap" id="dropZone">
+      <div class="p-import-icon">📂</div>
+      <div class="p-import-title">作業員CSVを読み込む</div>
+      <div class="p-import-desc">
+        作業員が出力したCSVファイルを選択するか、<br>ここにドラッグ＆ドロップしてください
+      </div>
+      <button class="p-upload-btn" id="pImportBtn">📂 CSVファイルを選択</button>
+      <input type="file" id="pFileInput" accept=".csv" style="display:none;" />
+      <div class="p-import-divider">または</div>
+      <button class="p-load-saved-btn" id="pLoadSavedBtn">🔄 前回の作業を再開する</button>
+    </div>
+  </div>
+
+  <!-- ── Case List view ── -->
+  <div id="viewList" class="p-view" style="display:none;">
+    <div class="p-list-header">
+      <div class="p-list-meta">
+        <span class="p-list-filename" id="pListFilename"></span>
+        <button class="p-new-import-btn" id="pNewImportBtn">📂 別のCSV</button>
+      </div>
+      <div class="p-progress-row">
+        <div class="p-progress-bar-bg">
+          <div class="p-progress-bar-fill" id="pProgressFill" style="width:0%"></div>
+        </div>
+        <span class="p-progress-label" id="pProgressLabel">0 / 0</span>
+      </div>
+    </div>
+
+    <div id="pCaseList" class="p-case-list"></div>
+
+    <div class="p-action-bar">
+      <button class="p-btn-download" id="pDownloadBtn">📥 処理済みCSVをダウンロード</button>
+    </div>
+  </div>
+
+  <!-- ── Case Detail view ── -->
+  <div id="viewDetail" class="p-view" style="display:none;">
+    <div class="p-detail-header">
+      <button class="p-back-list-btn" id="pBackToListBtn">← 一覧</button>
+      <div class="p-case-nav">
+        <button id="pPrevCaseBtn" class="p-nav-btn">‹ 前</button>
+        <span class="p-nav-label" id="pCaseNavLabel">1 / 1</span>
+        <button id="pNextCaseBtn" class="p-nav-btn">次 ›</button>
+      </div>
+    </div>
+
+    <div id="pDetailContent" class="p-detail-content"></div>
+
+    <div class="p-detail-actions">
+      <button class="p-btn-save-case" id="pSaveCaseBtn">✅ 保存して次へ</button>
+      <button class="p-btn-skip-case" id="pSkipCaseBtn">スキップ ›</button>
+    </div>
+  </div>
+
+  <script src="./police.js"></script>
+</body>
+</html>

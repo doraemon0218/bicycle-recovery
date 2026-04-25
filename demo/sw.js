@@ -1,9 +1,13 @@
-const CACHE = 'bicycle-recovery-v5';
+const CACHE = 'bicycle-recovery-v6';
 const ASSETS = [
   '/',
   '/index.html',
+  '/worker.html',
+  '/police.html',
   '/app.js',
+  '/police.js',
   '/styles.css',
+  '/police.css',
   '/manifest.json',
   'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
 ];
