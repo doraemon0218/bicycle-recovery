@@ -16,6 +16,7 @@
     <div id="normalApp" style="display:none;">
       <header class="n-header">
         <div class="n-header-inner">
+          <button id="nTopPageBtn" class="n-top-page-btn" title="ロール選択に戻る">🏠</button>
           <div class="n-header-titles">
             <h1>🚲 自転車回収記録</h1>
             <p class="n-sub">不法駐輪回収・警察提出管理</p>
@@ -106,7 +107,7 @@
             <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>
           </div>
           <div class="form-actions">
-            <button id="saveBtn" class="btn-primary btn-large">💾 保存する</button>
+            <button id="saveBtn" class="btn-primary btn-large">✅ 登録する</button>
           </div>
           </div><!-- /nFormCards -->
         </section>
@@ -158,8 +159,11 @@
       <header class="sv-header">
         <div class="sv-header-inner">
           <div class="sv-header-left">
-            <div class="sv-header-title">🚲 自転車回収記録</div>
-            <div class="sv-header-badge">シルバー版</div>
+            <button id="svTopPageBtn" class="sv-top-page-btn" title="ロール選択に戻る">🏠 戻る</button>
+            <div>
+              <div class="sv-header-title">🚲 自転車回収記録</div>
+              <div class="sv-header-badge">シルバー版</div>
+            </div>
           </div>
           <div id="svSyncBadge" class="sync-badge offline">● オフライン</div>
         </div>
@@ -181,7 +185,7 @@
           <button class="sv-reset-btn" id="svResetBtn" style="display:none;">🏠 最初から</button>
         </div>
         <div id="svStepContent" class="sv-step-content"></div>
-        <div class="sv-bottom-nav">
+        <div class="sv-bottom-nav" style="display:none;">
           <button id="svPrevBtn" class="sv-btn-back">← もどる</button>
           <button id="svNextBtn" class="sv-btn-next">つぎへ →</button>
         </div>

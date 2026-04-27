@@ -339,6 +339,18 @@ function initNormalApp() {
   initExport();
   setDefaultDatetime();
   $('setNowBtn')?.addEventListener('click', setDefaultDatetime);
+  // ロール選択（トップ）に戻るボタン
+  $('nTopPageBtn')?.addEventListener('click', () => {
+    const formVisible = $('nFormCards')?.style.display !== 'none';
+    const hasData = formVisible && (
+      ($('regNumber')?.value || '').trim() !== '' ||
+      getSelectedConditions().length > 0 ||
+      ($('locationNote')?.value || '').trim() !== '' ||
+      ($('notes')?.value || '').trim() !== ''
+    );
+    if (hasData && !confirm('この自転車（１台分）の登録は中断されますが、よろしいですか？')) return;
+    window.location.href = './index.html';
+  });
 }
 
 function initNormalNav() {
@@ -702,6 +714,7 @@ window.deleteRecord=async function(id){if(!confirm('削除しますか？'))retu
 // ═══════════════════════════════════════════════
 const sv = {
   currentStep: 0,
+  started: false,
   liveClock: null,  // setInterval ID for the datetime step live clock
   state: {
     hasReg:null, photoDataUrl:null,
@@ -728,26 +741,44 @@ function svInit() {
   // Tab nav
   document.querySelectorAll('.sv-tab').forEach(tab => {
     tab.addEventListener('click', () => {
+      const currentTabName = document.querySelector('.sv-tab.active')?.dataset.svTab;
+      const newTabName = tab.dataset.svTab;
+      if (currentTabName === newTabName) return;
+      // 入力中にホームタブから離れようとした場合は確認
+      if (currentTabName === 'home' && sv.started) {
+        if (!svConfirmAbort()) return;
+        svResetState();
+      }
       document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
       document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
       tab.classList.add('active');
-      const name = tab.dataset.svTab;
-      $(`sv${name.charAt(0).toUpperCase()+name.slice(1)}Tab`).classList.add('active');
-      if(name==='list') svRenderList();
+      $(`sv${newTabName.charAt(0).toUpperCase()+newTabName.slice(1)}Tab`).classList.add('active');
+      if(newTabName==='list') svRenderList();
+      if(newTabName==='home') svRenderCurrentStep();
     });
   });
   $('svPrevBtn').addEventListener('click', svPrev);
   $('svNextBtn').addEventListener('click', svNext);
-  $('svResetBtn').addEventListener('click', ()=>{
-    if(sv.currentStep===0||confirm('入力中のデータが消えます。最初から始めますか？')){svGoHome();}
+  $('svResetBtn').addEventListener('click', () => {
+    if (svConfirmAbort()) svGoHome();
+  });
+  // ロール選択（トップ）に戻るボタン
+  $('svTopPageBtn')?.addEventListener('click', () => {
+    if (!svConfirmAbort()) return;
+    window.location.href = './index.html';
   });
   svRenderCurrentStep();
 }
 
-function svGoHome() {
+function svResetState() {
   sv.currentStep = 0;
+  sv.started = false;
+  clearInterval(sv.liveClock); sv.liveClock = null;
   sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
-  // Switch to home tab
+}
+
+function svGoHome() {
+  svResetState();
   document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
   document.querySelector('.sv-tab[data-sv-tab="home"]').classList.add('active');
@@ -755,8 +786,55 @@ function svGoHome() {
   svRenderCurrentStep();
 }
 
+function svConfirmAbort() {
+  if (!sv.started) return true;
+  return confirm('この自転車（１台分）の登録は中断されますが、よろしいですか？');
+}
+
+function svRenderStart() {
+  const nav = document.querySelector('.sv-bottom-nav');
+  if (nav) nav.style.display = 'none';
+  $('svResetBtn').style.display = 'none';
+  $('svProgressFill').style.width = '0%';
+  $('svStepLabel').textContent = '準備中…';
+  const content = $('svStepContent');
+  content.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'sv-card sv-start-card';
+  card.innerHTML = `
+    <div class="sv-start-icon">🚲</div>
+    <div class="sv-start-title">１台分の自転車を<br>登録します</div>
+    <div class="sv-start-count-badge" id="svStartCountBadge" style="display:none;"></div>
+    <div class="sv-start-steps">
+      <div class="sv-start-step-item"><span class="sv-start-step-num">1</span>防犯登録の確認</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">2</span>自転車の状態</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">3</span>現在地の記録</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">4</span>保管場所の選択</div>
+    </div>
+    <button class="sv-start-btn" id="svStartBtn">入力を始める ▶</button>`;
+  content.appendChild(card);
+  window.scrollTo({top:0,behavior:'smooth'});
+  $('svStartBtn').addEventListener('click', () => {
+    sv.started = true;
+    svRenderCurrentStep();
+  });
+  countTodayRecords().then(count => {
+    const badge = $('svStartCountBadge');
+    const label = $('svStepLabel');
+    if (count > 0) {
+      if (badge) { badge.textContent = `本日 ${count} 台完了`; badge.style.display = 'inline-block'; }
+      if (label) label.textContent = `本日 ${count} 台登録済み`;
+    } else {
+      if (label) label.textContent = '最初の１台を登録します';
+    }
+  });
+}
+
 function svRenderCurrentStep() {
   clearInterval(sv.liveClock); sv.liveClock = null;
+  if (!sv.started) { svRenderStart(); return; }
+  const nav = document.querySelector('.sv-bottom-nav');
+  if (nav) nav.style.display = '';
   const steps = svActiveSteps();
   const idx = sv.currentStep, total = steps.length;
   const step = steps[idx];
@@ -764,7 +842,7 @@ function svRenderCurrentStep() {
   $('svStepLabel').textContent = `ステップ ${idx+1} / ${total}`;
   $('svResetBtn').style.display = idx > 0 ? 'block' : 'none';
   $('svPrevBtn').disabled = idx === 0;
-  if(idx===total-1){$('svNextBtn').textContent='💾 保存する';$('svNextBtn').className='sv-btn-next last-step';}
+  if(idx===total-1){$('svNextBtn').textContent='✅ 登録する';$('svNextBtn').className='sv-btn-next last-step';}
   else{$('svNextBtn').textContent='つぎへ →';$('svNextBtn').className='sv-btn-next';}
   const content=$('svStepContent'); content.innerHTML='';
   const card=document.createElement('div'); card.className='sv-card';
@@ -1053,6 +1131,7 @@ async function svSave(){
       locationNote:'',collectedAt,
       storageLocationId:sv.state.storageId,notes:sv.state.notes||'',
     });
+    sv.started = false;
     const count = await countTodayRecords();
     const loc = STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
     svRenderDone(count, sv.state.regNumber||'', loc?.name||'');
@@ -1083,11 +1162,9 @@ function svRenderDone(count, regNumber, storageName) {
   $('svStepLabel').textContent='✅ 登録完了';
   $('svProgressFill').style.width='100%';
   $('svDoneNextBtn').addEventListener('click', ()=>{
-    if(nav) nav.style.display='';
     svGoHome();
   });
   $('svDoneListBtn').addEventListener('click', ()=>{
-    if(nav) nav.style.display='';
     svGoHome();
     document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
