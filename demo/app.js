@@ -7,6 +7,17 @@ const STORAGE_LOCATIONS = [
   { id: 'D', name: '保管場所D', address: '東京都○○区○○4丁目4-4（臨時保管場）' },
 ];
 const CONDITION_OPTIONS = ['良好','一部損傷','大破','錆が多い','施錠あり','カゴなし','タイヤパンク','ライトなし','放置ステッカーあり','泥・汚れ多い'];
+const BICYCLE_PARTS = [
+  { id:'fw', label:'前輪',    cx:242, cy:150, r:50 },
+  { id:'rw', label:'後輪',    cx:78,  cy:150, r:50 },
+  { id:'fr', label:'フレーム', cx:152, cy:118, r:22 },
+  { id:'hd', label:'ハンドル', cx:213, cy:62,  r:19 },
+  { id:'bk', label:'カゴ',    cx:250, cy:113, r:18 },
+  { id:'sd', label:'サドル',   cx:126, cy:86,  r:17 },
+  { id:'pd', label:'ペダル',   cx:160, cy:162, r:14 },
+  { id:'ch', label:'チェーン', cx:118, cy:154, r:13 },
+  { id:'lt', label:'ライト',   cx:272, cy:135, r:13 },
+];
 const SV_CONDITION_OPTIONS = [
   { icon: '✅', label: '特に問題なし' },
   { icon: '🔧', label: '傷・へこみあり' },
@@ -178,6 +189,141 @@ function toast(msg, dur=2800) {
 const $=id=>document.getElementById(id);
 const escHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+function makeBicycleSVGStatic() {
+  const zones = BICYCLE_PARTS.map(p =>
+    `<circle class="bike-zone" data-pid="${p.id}" cx="${p.cx}" cy="${p.cy}" r="${p.r}" fill="transparent" stroke="none" stroke-width="2.5"/>`
+  ).join('');
+  return `<svg viewBox="0 0 320 200" class="bike-svg" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="78" cy="150" r="44" stroke="#64748b" stroke-width="3.5" fill="none"/>
+    <circle cx="78" cy="150" r="6" fill="#64748b"/>
+    <circle cx="242" cy="150" r="44" stroke="#64748b" stroke-width="3.5" fill="none"/>
+    <circle cx="242" cy="150" r="6" fill="#64748b"/>
+    <line x1="160" y1="150" x2="78" y2="150" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="160" y1="150" x2="128" y2="90" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="128" y1="90" x2="78" y2="150" stroke="#64748b" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="128" y1="90" x2="208" y2="78" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="160" y1="150" x2="218" y2="100" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="208" y1="78" x2="218" y2="100" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+    <line x1="218" y1="100" x2="242" y2="150" stroke="#64748b" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="160" cy="150" r="13" stroke="#64748b" stroke-width="2.5" fill="#f8fafc"/>
+    <line x1="149" y1="161" x2="171" y2="161" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="160" cy="161" r="3.5" fill="#64748b"/>
+    <path d="M112 87 Q126 82 140 87" stroke="#64748b" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <line x1="128" y1="87" x2="128" y2="90" stroke="#64748b" stroke-width="3" stroke-linecap="round"/>
+    <line x1="208" y1="78" x2="213" y2="60" stroke="#64748b" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="197" y1="60" x2="228" y2="60" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="228" y1="60" x2="232" y2="70" stroke="#64748b" stroke-width="3" stroke-linecap="round"/>
+    <rect x="232" y="102" width="34" height="22" rx="3" stroke="#64748b" stroke-width="2.5" fill="#f1f5f9"/>
+    <line x1="244" y1="102" x2="244" y2="124" stroke="#64748b" stroke-width="1.5" opacity="0.4"/>
+    <line x1="256" y1="102" x2="256" y2="124" stroke="#64748b" stroke-width="1.5" opacity="0.4"/>
+    <line x1="232" y1="113" x2="266" y2="113" stroke="#64748b" stroke-width="1.5" opacity="0.4"/>
+    <path d="M214 114 Q241 97 268 114" stroke="#64748b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M50 114 Q78 97 106 114" stroke="#64748b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="272" cy="135" r="6" fill="#fef08a" stroke="#64748b" stroke-width="2"/>
+    <path d="M148 150 Q118 162 92 150" stroke="#94a3b8" stroke-width="2" fill="none" stroke-dasharray="4,3"/>
+    <text x="242" y="198" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">前輪</text>
+    <text x="78" y="198" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">後輪</text>
+    <text x="126" y="73" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">サドル</text>
+    <text x="213" y="50" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">ハンドル</text>
+    <text x="249" y="97" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">カゴ</text>
+    <text x="155" y="110" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">フレーム</text>
+    <text x="160" y="177" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">ペダル</text>
+    <text x="285" y="135" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">ライト</text>
+    <text x="108" y="168" text-anchor="middle" font-size="8" fill="#94a3b8" pointer-events="none">チェーン</text>
+    ${zones}
+  </svg>`;
+}
+
+function createConditionDetailEl(condKey, conditionDetailsObj, isSilver) {
+  const el = document.createElement('div');
+  el.className = 'cond-detail' + (isSilver ? ' sv-cond-detail' : '');
+  el.innerHTML = `
+    <div class="bike-hint">どこですか？ イラストをタップして場所を選択（複数可）</div>
+    <div class="bike-svg-wrap">${makeBicycleSVGStatic()}</div>
+    <div class="bike-selected-chips"></div>
+    <input type="text" class="bike-note-input" placeholder="詳しく書く場合はこちら（任意）"/>`;
+
+  function ensure() {
+    if (!conditionDetailsObj[condKey]) conditionDetailsObj[condKey] = { parts: [], note: '' };
+    return conditionDetailsObj[condKey];
+  }
+  function refresh() {
+    const d = conditionDetailsObj[condKey] || { parts: [] };
+    el.querySelectorAll('.bike-zone').forEach(z => {
+      const sel = d.parts.includes(z.dataset.pid);
+      z.setAttribute('fill', sel ? 'rgba(239,68,68,0.2)' : 'transparent');
+      z.setAttribute('stroke', sel ? '#ef4444' : 'none');
+    });
+    const chips = el.querySelector('.bike-selected-chips');
+    chips.innerHTML = d.parts.length
+      ? d.parts.map(id => { const p = BICYCLE_PARTS.find(x => x.id === id); return `<span class="bike-chip">${p?.label||id}</span>`; }).join('')
+      : '<span class="bike-no-sel">タップして選択</span>';
+  }
+  el.querySelectorAll('.bike-zone').forEach(z => {
+    z.addEventListener('click', () => {
+      const d = ensure(), id = z.dataset.pid, idx = d.parts.indexOf(id);
+      if (idx >= 0) d.parts.splice(idx, 1); else d.parts.push(id);
+      refresh();
+    });
+  });
+  el.querySelector('.bike-note-input').addEventListener('input', e => { ensure().note = e.target.value; });
+  refresh();
+  return el;
+}
+
+function conditionRichText(conditions, conditionDetails) {
+  return (conditions || []).map(label => {
+    const d = (conditionDetails || {})[label];
+    if (!d || (!d.parts.length && !d.note)) return label;
+    let t = label;
+    if (d.parts.length) t += '（' + d.parts.map(id => { const p = BICYCLE_PARTS.find(x => x.id === id); return p?.label||id; }).join('・') + '）';
+    if (d.note) t += ' ' + d.note;
+    return t;
+  }).join(' / ');
+}
+
+function getTodayShiftEnd() {
+  try {
+    const s = localStorage.getItem('shiftEnd'); if (!s) return null;
+    const { date, endTime } = JSON.parse(s);
+    return date === new Date().toDateString() ? endTime : null;
+  } catch { return null; }
+}
+
+async function handleShiftEnd() {
+  const count = await countTodayRecords();
+  if (!confirm(`本日の勤務を終了します。\n登録件数: ${count}台\n\nCSVを出力しますか？`)) return;
+  const endTime = new Date().toISOString();
+  localStorage.setItem('shiftEnd', JSON.stringify({ date: new Date().toDateString(), endTime }));
+  await exportTodayCSV(endTime);
+  toast('✅ 勤務終了を記録しました');
+  svRenderCurrentStep();
+}
+
+async function exportTodayCSV(endTime) {
+  const records = await dbGetAll();
+  const today = new Date().toDateString();
+  const todayRecs = records.filter(r => new Date(r.collectedAt).toDateString() === today)
+    .sort((a, b) => new Date(a.collectedAt) - new Date(b.collectedAt));
+  if (!todayRecs.length) { toast('本日の回収データがありません'); return; }
+  const headers = ['管理ID','回収日時','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
+  const rows = todayRecs.map(r => [r.id, new Date(r.collectedAt).toLocaleString('ja-JP'), r.registrationNumber||'',
+    {yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'',
+    conditionRichText(r.conditions, r.conditionDetails), r.conditionNote||'',
+    r.lat!=null?r.lat.toFixed(6):'', r.lng!=null?r.lng.toFixed(6):'', r.locationAccuracy??'',
+    r.locationNote||'', r.storageLocationName||'', r.storageLocationAddress||'',
+    r.notes||'', r.synced?'済み':'未', new Date(r.createdAt).toLocaleString('ja-JP')]);
+  rows.push(['[勤務終了]', new Date(endTime).toLocaleString('ja-JP'),'','','','','','','','','','','勤務終了記録','','']);
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const tStr = new Date(endTime).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}).replace(':','');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `bicycle_recovery_${date}_end${tStr}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast(`✅ 本日${todayRecs.length}件をCSV出力しました`);
+}
+
 // ── モード管理 ─────────────────────────────────
 function getMode() { return localStorage.getItem('appMode') || 'silver'; }
 function setMode(mode) {
@@ -203,7 +349,7 @@ function renderSettingsPages(mode) {
       <button class="${activeMode==='silver' ? `sv-mode-card${mode==='silver'?' active-silver':''}` : `mode-card${mode==='silver'?' active-silver':''}`}" onclick="setMode('silver')">
         <span class="${activeMode==='silver'?'sv-mode-card-icon':'mode-card-icon'}">🌟</span>
         <span>
-          <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">シルバー版</div>
+          <div class="${activeMode==='silver'?'sv-mode-card-name':'mode-card-name'}">らくらくver</div>
           <div class="${activeMode==='silver'?'sv-mode-card-desc':'mode-card-desc'}">大きな文字・ボタン<br>1ステップずつ丁寧に案内</div>
         </span>
         ${mode==='silver' ? `<span class="${activeMode==='silver'?'sv-mode-card-check':'mode-card-check'}">✅</span>` : ''}
@@ -232,7 +378,7 @@ function renderSettingsPages(mode) {
     <div class="${activeMode==='silver' ? 'sv-settings-wrap' : 'settings-section'}">
       <div class="${activeMode==='silver' ? 'sv-settings-title' : 'settings-title'}">⚙️ 設定</div>
       <div class="current-mode-badge" style="${activeMode==='silver'?'font-size:0.9rem;padding:5px 14px;':''}">
-        現在：${activeMode==='normal' ? '通常版' : 'シルバー版'}
+        現在：${activeMode==='normal' ? '通常版' : 'らくらくver'}
       </div>
       ${modeCards(activeMode)}
       ${gpsCard(activeMode==='silver')}
@@ -323,8 +469,8 @@ function updateSyncBadge() {
 const ns = {
   hasReg: 'yes', photoDataUrl: null,
   lat: null, lng: null, locationAccuracy: null,
-  ocrPrediction: '',   // OCRが返した生テキスト（学習データ用）
-  inputMethod: 'manual', // 'ocr_accepted' | 'ocr_corrected' | 'manual'
+  ocrPrediction: '', inputMethod: 'manual',
+  conditionDetails: {},
 };
 
 function initNormalApp() {
@@ -337,6 +483,7 @@ function initNormalApp() {
   initSave();
   initList();
   initExport();
+  initNormalWizard();
   setDefaultDatetime();
   $('setNowBtn')?.addEventListener('click', setDefaultDatetime);
   // ロール選択（トップ）に戻るボタン
@@ -365,6 +512,81 @@ function initNormalNav() {
       if(page==='export') renderExportSummary();
     });
   });
+}
+
+// ── 通常版ウィザードコントローラー ──────────────
+let nWizStep = 0;
+const N_WIZ_TOTAL = 6;
+
+function initNormalWizard() {
+  $('nWizProgress').style.display = 'flex';
+  $('nWizNav').style.display = 'flex';
+  nWizGoTo(0);
+  $('nWizBack').addEventListener('click', () => nWizGoTo(nWizStep - 1));
+  $('nWizNext').addEventListener('click', () => {
+    if (!nWizValidate()) return;
+    if (nWizStep < N_WIZ_TOTAL - 1) nWizGoTo(nWizStep + 1);
+  });
+}
+
+function nWizGoTo(step) {
+  document.querySelectorAll('.n-wiz-step').forEach(s => s.classList.remove('active'));
+  const target = document.querySelector(`.n-wiz-step[data-step="${step}"]`);
+  if (target) target.classList.add('active');
+  nWizStep = step;
+  $('nWizLabel').textContent = `ステップ ${step + 1} / ${N_WIZ_TOTAL}`;
+  $('nWizFill').style.width = `${((step + 1) / N_WIZ_TOTAL) * 100}%`;
+  $('nWizBack').disabled = step === 0;
+  const nextBtn = $('nWizNext');
+  if (step === N_WIZ_TOTAL - 1) {
+    nextBtn.style.display = 'none';
+    nWizRenderSummary();
+  } else {
+    nextBtn.style.display = '';
+    nextBtn.textContent = step === N_WIZ_TOTAL - 2 ? '確認へ →' : 'つぎへ →';
+    nextBtn.className = 'n-wiz-next';
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nWizValidate() {
+  if (nWizStep === 0) {
+    if (ns.hasReg === 'yes') {
+      const v1 = ($('regNumber')?.value||'').trim();
+      const v2 = ($('regNumberConfirm')?.value||'').trim();
+      if (v1 && !v2) { toast('⚠️ 登録番号の確認（2回目）を入力してください'); return false; }
+      if (v1 && v2 && v1 !== v2) { toast('⚠️ 登録番号の1回目と2回目が一致しません'); return false; }
+    }
+  }
+  if (nWizStep === 3) {
+    if (!$('collectedAt').value) { toast('⚠️ 回収日時を入力してください'); return false; }
+  }
+  if (nWizStep === 4) {
+    if (!$('storageLocation').value) { toast('⚠️ 保管場所を選択してください'); return false; }
+  }
+  return true;
+}
+
+function nWizRenderSummary() {
+  const el = $('nWizSummary'); if (!el) return;
+  const regText = ns.hasReg === 'yes'
+    ? `あり${($('regNumber')?.value||'').trim() ? '（'+$('regNumber').value.trim()+'）' : ''}`
+    : ns.hasReg === 'no' ? 'なし' : '不明';
+  const conds = getSelectedConditions();
+  const loc = STORAGE_LOCATIONS.find(l => l.id === $('storageLocation').value);
+  const items = [
+    { label:'防犯登録', val:regText, ok:true },
+    { label:'車体状況', val:conds.length ? conditionRichText(conds, ns.conditionDetails) : '（選択なし）', ok:true },
+    { label:'GPS', val:ns.lat ? `取得済み（±${ns.locationAccuracy}m）` : '未取得', ok:!!ns.lat, warn:!ns.lat },
+    { label:'回収日時', val:$('collectedAt')?.value ? new Date($('collectedAt').value).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未入力', ok:!!$('collectedAt')?.value, err:!$('collectedAt')?.value },
+    { label:'保管場所', val:loc ? loc.name : '未選択', ok:!!loc, err:!loc },
+  ];
+  el.innerHTML = `<div style="font-size:0.82rem;font-weight:700;color:var(--header);margin-bottom:8px;">入力内容の確認</div>` +
+    items.map(i => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);font-size:0.82rem;">
+      <span>${i.err?'❌':i.warn?'⚠️':'✅'}</span>
+      <span style="color:var(--text-muted);font-weight:600;min-width:70px;flex-shrink:0;">${i.label}</span>
+      <span style="word-break:break-all;">${escHtml(i.val)}</span>
+    </div>`).join('');
 }
 
 function initRegSection() {
@@ -464,11 +686,19 @@ function showLocStatus(type, msg) {
 
 function buildNormalConditionGrid() {
   const grid=$('conditionGrid'); if(!grid) return;
+  grid.innerHTML='';
   CONDITION_OPTIONS.forEach(opt=>{
+    const wrap=document.createElement('div'); wrap.className='cond-wrap';
     const label=document.createElement('label'); label.className='cond-label';
     const cb=document.createElement('input'); cb.type='checkbox'; cb.value=opt;
-    cb.addEventListener('change',()=>label.classList.toggle('checked',cb.checked));
-    label.appendChild(cb); label.appendChild(document.createTextNode(opt)); grid.appendChild(label);
+    const detailEl=createConditionDetailEl(opt,ns.conditionDetails,false);
+    cb.addEventListener('change',()=>{
+      label.classList.toggle('checked',cb.checked);
+      detailEl.classList.toggle('show',cb.checked);
+      if(!cb.checked) delete ns.conditionDetails[opt];
+    });
+    label.appendChild(cb); label.appendChild(document.createTextNode(opt));
+    wrap.appendChild(label); wrap.appendChild(detailEl); grid.appendChild(wrap);
   });
 }
 
@@ -508,10 +738,14 @@ function showNormalComplete(count, regNumber, storageName) {
     <button class="nc-list-btn" id="ncListBtn">📋 一覧を確認する</button>`;
   $('nCompleteCard').style.display = 'block';
   $('nFormCards').style.display = 'none';
+  $('nWizProgress').style.display = 'none';
+  $('nWizNav').style.display = 'none';
   window.scrollTo({top:0,behavior:'smooth'});
   $('ncNextBtn').addEventListener('click', ()=>{
     $('nCompleteCard').style.display='none';
     $('nFormCards').style.display='block';
+    $('nWizProgress').style.display='flex';
+    $('nWizNav').style.display='flex';
     resetNormalForm();
   });
   $('ncListBtn').addEventListener('click', ()=>{
@@ -540,7 +774,7 @@ function initSave() {
       photoDataUrl:ns.hasReg==='yes'?(ns.photoDataUrl||null):null,
       ocrPrediction:ns.ocrPrediction,
       inputMethod:ns.inputMethod,
-      conditions:getSelectedConditions(), conditionNote:$('conditionNote').value.trim(),
+      conditions:getSelectedConditions(), conditionDetails:ns.conditionDetails, conditionNote:$('conditionNote').value.trim(),
       lat:ns.lat, lng:ns.lng, locationAccuracy:ns.locationAccuracy,
       locationNote:$('locationNote').value.trim(),
       collectedAt:new Date(collectedAt).toISOString(), storageLocationId:storageId, notes:$('notes').value.trim(),
@@ -569,11 +803,14 @@ function resetNormalForm(){
   if($('regNumberConfirm'))$('regNumberConfirm').value='';
   if($('regMatchStatus'))$('regMatchStatus').style.display='none';
   const badge=$('regOcrBadge');if(badge)badge.style.display='none';
-  document.querySelectorAll('#conditionGrid input').forEach(cb=>{cb.checked=false;cb.closest('label').classList.remove('checked');});
+  ns.conditionDetails={};
+  buildNormalConditionGrid();
   $('conditionNote').value='';$('locationStatus').style.display='none';
   $('mapsLink').style.display='none';$('locationNote').value='';
   $('storageLocation').value='';$('storageAddress').textContent='';$('notes').value='';
-  setDefaultDatetime(); window.scrollTo({top:0,behavior:'smooth'});
+  setDefaultDatetime();
+  nWizGoTo(0);
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function initList(){
@@ -662,7 +899,7 @@ async function exportCSV(all=false){
   if(!target.length){toast('該当データがありません');return;}
   const headers=['管理ID','回収日時','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
   const rows=target.map(r=>[r.id,new Date(r.collectedAt).toLocaleString('ja-JP'),r.registrationNumber||'',
-    {yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'',r.conditions?.join(' / ')||'',r.conditionNote||'',
+    {yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'',conditionRichText(r.conditions,r.conditionDetails),r.conditionNote||'',
     r.lat!=null?r.lat.toFixed(6):'',r.lng!=null?r.lng.toFixed(6):'',r.locationAccuracy??'',r.locationNote||'',
     r.storageLocationName||'',r.storageLocationAddress||'',r.notes||'',r.synced?'済み':'未',new Date(r.createdAt).toLocaleString('ja-JP')]);
   const csv=[headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
@@ -710,7 +947,7 @@ window.markSynced=async function(id){const records=await dbGetAll();const r=reco
 window.deleteRecord=async function(id){if(!confirm('削除しますか？'))return;await dbDelete(id);toast('削除しました');closeModal();renderList();};
 
 // ═══════════════════════════════════════════════
-// シルバー版ウィザード
+// らくらくverウィザード
 // ═══════════════════════════════════════════════
 const sv = {
   currentStep: 0,
@@ -720,7 +957,7 @@ const sv = {
     hasReg:null, photoDataUrl:null,
     regNumber:'', regNumberConfirm:'',
     ocrPrediction:'', inputMethod:'manual',
-    conditions:[], conditionNote:'',
+    conditions:[], conditionDetails:{}, conditionNote:'',
     lat:null, lng:null, locationAccuracy:null,
     collectedAt:null, storageId:null, notes:''
   },
@@ -774,7 +1011,7 @@ function svResetState() {
   sv.currentStep = 0;
   sv.started = false;
   clearInterval(sv.liveClock); sv.liveClock = null;
-  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
+  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionDetails:{},conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
 }
 
 function svGoHome() {
@@ -818,6 +1055,19 @@ function svRenderStart() {
     sv.started = true;
     svRenderCurrentStep();
   });
+  // 勤務終了ボタン
+  const shiftEndBtn = document.createElement('button');
+  shiftEndBtn.className = 'sv-shift-end-btn';
+  shiftEndBtn.textContent = '📋 本日の勤務を終了する（CSV出力）';
+  shiftEndBtn.addEventListener('click', handleShiftEnd);
+  card.appendChild(shiftEndBtn);
+  const todayEnd = getTodayShiftEnd();
+  if (todayEnd) {
+    const info = document.createElement('div');
+    info.className = 'sv-shift-end-info';
+    info.textContent = `本日の勤務終了時刻：${new Date(todayEnd).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`;
+    card.appendChild(info);
+  }
   countTodayRecords().then(count => {
     const badge = $('svStartCountBadge');
     const label = $('svStepLabel');
@@ -935,20 +1185,26 @@ function svRenderPhoto(card) {
 }
 
 function svRenderCondition(card) {
-  card.innerHTML+=`<p class="sv-step-hint">あてはまるものをすべてタップしてください（なければそのまま「つぎへ」）</p>
-    <div class="sv-cond-grid">
-      ${SV_CONDITION_OPTIONS.map(o=>`
-        <label class="sv-cond-label${sv.state.conditions.includes(o.label)?' checked':''}">
-          <input type="checkbox" value="${o.label}"${sv.state.conditions.includes(o.label)?' checked':''} />
-          <span>${o.icon} ${o.label}</span>
-        </label>`).join('')}
-    </div>`;
-  card.querySelectorAll('.sv-cond-grid input').forEach(cb=>{
+  card.innerHTML+=`<p class="sv-step-hint">あてはまるものをすべてタップしてください（なければそのまま「つぎへ」）</p><div class="sv-cond-grid" id="svCondGrid"></div>`;
+  const grid=card.querySelector('#svCondGrid');
+  SV_CONDITION_OPTIONS.forEach(o=>{
+    const wrap=document.createElement('div');
+    const checked=sv.state.conditions.includes(o.label);
+    const label=document.createElement('label');
+    label.className='sv-cond-label'+(checked?' checked':'');
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.value=o.label;
+    if(checked) cb.checked=true;
+    const span=document.createElement('span'); span.textContent=o.icon+' '+o.label;
+    label.appendChild(cb); label.appendChild(span);
+    const detailEl=createConditionDetailEl(o.label,sv.state.conditionDetails,true);
+    if(checked) detailEl.classList.add('show');
     cb.addEventListener('change',()=>{
-      cb.closest('label').classList.toggle('checked',cb.checked);
+      label.classList.toggle('checked',cb.checked);
+      detailEl.classList.toggle('show',cb.checked);
       if(cb.checked){if(!sv.state.conditions.includes(cb.value))sv.state.conditions.push(cb.value);}
-      else sv.state.conditions=sv.state.conditions.filter(c=>c!==cb.value);
+      else{sv.state.conditions=sv.state.conditions.filter(c=>c!==cb.value);delete sv.state.conditionDetails[cb.value];}
     });
+    wrap.appendChild(label); wrap.appendChild(detailEl); grid.appendChild(wrap);
   });
 }
 
@@ -1126,7 +1382,7 @@ async function svSave(){
       hasRegistration:sv.state.hasReg||'unknown',
       registrationNumber:sv.state.regNumber||'',photoDataUrl:sv.state.photoDataUrl||null,
       ocrPrediction:sv.state.ocrPrediction||'',inputMethod:sv.state.inputMethod||'manual',
-      conditions:sv.state.conditions,conditionNote:sv.state.conditionNote||'',
+      conditions:sv.state.conditions,conditionDetails:sv.state.conditionDetails,conditionNote:sv.state.conditionNote||'',
       lat:sv.state.lat,lng:sv.state.lng,locationAccuracy:sv.state.locationAccuracy,
       locationNote:'',collectedAt,
       storageLocationId:sv.state.storageId,notes:sv.state.notes||'',

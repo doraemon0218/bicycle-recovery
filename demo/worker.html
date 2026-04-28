@@ -37,79 +37,112 @@
         <section id="nRegisterTab" class="n-page active">
           <!-- 登録完了カード（保存後に表示） -->
           <div id="nCompleteCard" class="n-complete-card" style="display:none;"></div>
-          <!-- フォーム本体 -->
+          <!-- ウィザード進捗バー -->
+          <div class="n-wiz-progress" id="nWizProgress" style="display:none;">
+            <span class="n-wiz-label" id="nWizLabel">ステップ 1/6</span>
+            <div class="n-wiz-bar-bg"><div class="n-wiz-bar-fill" id="nWizFill" style="width:0%"></div></div>
+          </div>
+          <!-- フォーム本体（ウィザード各ステップ） -->
           <div id="nFormCards">
-          <div class="card">
-            <h2>防犯登録</h2>
-            <div class="form-stack">
-              <label>防犯登録シール <span class="req">*</span></label>
-              <div class="seg-ctrl" id="hasRegCtrl">
-                <button class="seg-btn active" data-value="yes">あり</button>
-                <button class="seg-btn" data-value="no">なし</button>
-                <button class="seg-btn" data-value="unknown">不明</button>
-              </div>
-              <div id="regSection">
-                <div class="photo-zone">
-                  <canvas id="photoPreview" style="display:none;"></canvas>
-                  <div id="photoPlaceholder" class="photo-placeholder"><span>シールの写真をここに表示</span></div>
-                  <div class="photo-btns">
-                    <button class="btn-camera" id="shootBtn">📷 撮影・選択</button>
-                    <button class="btn-camera secondary" id="retakeBtn" style="display:none;">↺ 撮り直す</button>
+            <!-- Step 1: 防犯登録 -->
+            <div class="n-wiz-step active" data-step="0">
+              <div class="card">
+                <div class="n-wiz-step-title">① 防犯登録シールの確認</div>
+                <div class="form-stack">
+                  <label>シールの有無 <span class="req">*</span></label>
+                  <div class="seg-ctrl" id="hasRegCtrl">
+                    <button class="seg-btn active" data-value="yes">あり</button>
+                    <button class="seg-btn" data-value="no">なし</button>
+                    <button class="seg-btn" data-value="unknown">不明</button>
                   </div>
-                  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" />
+                  <div id="regSection">
+                    <div class="photo-zone">
+                      <canvas id="photoPreview" style="display:none;"></canvas>
+                      <div id="photoPlaceholder" class="photo-placeholder"><span>シールの写真をここに表示</span></div>
+                      <div class="photo-btns">
+                        <button class="btn-camera" id="shootBtn">📷 撮影・選択</button>
+                        <button class="btn-camera secondary" id="retakeBtn" style="display:none;">↺ 撮り直す</button>
+                      </div>
+                      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" />
+                    </div>
+                    <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
+                    <label>防犯登録番号（1回目）</label>
+                    <div class="input-with-badge">
+                      <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678" autocomplete="off" />
+                      <span id="regOcrBadge" class="ocr-badge" style="display:none;">自動入力</span>
+                    </div>
+                    <label>防犯登録番号（確認・2回目）</label>
+                    <input id="regNumberConfirm" type="text" inputmode="text" placeholder="同じ番号をもう一度入力" autocomplete="off" />
+                    <div id="regMatchStatus" class="reg-match" style="display:none;"></div>
+                  </div>
                 </div>
-                <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
-                <label>防犯登録番号（1回目）<span class="req">*</span></label>
-                <div class="input-with-badge">
-                  <input id="regNumber" type="text" inputmode="text" placeholder="例: 東京 12345678" autocomplete="off" />
-                  <span id="regOcrBadge" class="ocr-badge" style="display:none;">OCR自動入力</span>
-                </div>
-                <p class="field-hint">撮影後に自動入力されます。違う場合は直接修正してください。</p>
-                <label>防犯登録番号（確認・2回目）<span class="req">*</span></label>
-                <input id="regNumberConfirm" type="text" inputmode="text" placeholder="同じ番号をもう一度入力" autocomplete="off" />
-                <div id="regMatchStatus" class="reg-match" style="display:none;"></div>
-                <p class="field-hint">2回の入力が一致したときに番号が確定されます。写真と入力データはOCR精度向上に活用されます。</p>
               </div>
             </div>
-          </div>
-          <div class="card">
-            <h2>車体状況</h2>
-            <div class="form-stack">
-              <label>状態（複数選択可）</label>
-              <div class="condition-grid" id="conditionGrid"></div>
-              <label>追記・備考</label>
-              <textarea id="conditionNote" rows="2" placeholder="色・メーカー・特徴など"></textarea>
+            <!-- Step 2: 車体状況 -->
+            <div class="n-wiz-step" data-step="1">
+              <div class="card">
+                <div class="n-wiz-step-title">② 自転車の状態</div>
+                <div class="form-stack">
+                  <label>状態（複数選択可）</label>
+                  <div class="condition-grid" id="conditionGrid"></div>
+                  <label style="margin-top:10px;">全体への追記・備考</label>
+                  <textarea id="conditionNote" rows="2" placeholder="色・メーカー・特徴など"></textarea>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="card">
-            <h2>回収位置</h2>
-            <div class="form-stack">
-              <button class="btn-location" id="getLocationBtn">📍 現在地を自動取得</button>
-              <div id="locationStatus" class="location-status" style="display:none;"></div>
-              <a id="mapsLink" class="maps-link" style="display:none;" target="_blank" rel="noopener">地図で確認 →</a>
-              <label>住所・目印（任意）</label>
-              <input id="locationNote" type="text" placeholder="例: ○○駅東口 駐輪禁止エリア" />
+            <!-- Step 3: 回収位置 -->
+            <div class="n-wiz-step" data-step="2">
+              <div class="card">
+                <div class="n-wiz-step-title">③ 回収した場所</div>
+                <div class="form-stack">
+                  <button class="btn-location" id="getLocationBtn">📍 現在地を自動取得</button>
+                  <div id="locationStatus" class="location-status" style="display:none;"></div>
+                  <a id="mapsLink" class="maps-link" style="display:none;" target="_blank" rel="noopener">地図で確認 →</a>
+                  <label>住所・目印（任意）</label>
+                  <input id="locationNote" type="text" placeholder="例: ○○駅東口 駐輪禁止エリア" />
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="card">
-            <h2>回収情報</h2>
-            <div class="form-stack">
-              <label>回収日時 <span class="req">*</span></label>
-              <button type="button" class="btn-now" id="setNowBtn">🕐 現在日時を入力</button>
-              <input id="collectedAt" type="datetime-local" />
-              <label>搬送先保管場所 <span class="req">*</span></label>
-              <select id="storageLocation"><option value="">選択してください</option></select>
-              <p id="storageAddress" class="field-hint storage-addr"></p>
+            <!-- Step 4: 日時 -->
+            <div class="n-wiz-step" data-step="3">
+              <div class="card">
+                <div class="n-wiz-step-title">④ 回収日時</div>
+                <div class="form-stack">
+                  <button type="button" class="btn-now" id="setNowBtn">🕐 現在日時を入力</button>
+                  <input id="collectedAt" type="datetime-local" />
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="card">
-            <h2>その他の備考</h2>
-            <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>
-          </div>
-          <div class="form-actions">
-            <button id="saveBtn" class="btn-primary btn-large">✅ 登録する</button>
-          </div>
+            <!-- Step 5: 保管場所 -->
+            <div class="n-wiz-step" data-step="4">
+              <div class="card">
+                <div class="n-wiz-step-title">⑤ 搬送先保管場所</div>
+                <div class="form-stack">
+                  <select id="storageLocation"><option value="">選択してください</option></select>
+                  <p id="storageAddress" class="field-hint storage-addr"></p>
+                </div>
+              </div>
+            </div>
+            <!-- Step 6: 備考・確認 -->
+            <div class="n-wiz-step" data-step="5">
+              <div class="card">
+                <div class="n-wiz-step-title">⑥ 備考・確認して登録</div>
+                <div class="form-stack">
+                  <label>特記事項（任意）</label>
+                  <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>
+                  <div id="nWizSummary" class="n-wiz-summary" style="margin-top:10px;"></div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button id="saveBtn" class="btn-primary btn-large">✅ この内容で登録する</button>
+              </div>
+            </div>
           </div><!-- /nFormCards -->
+          <!-- ウィザードナビ -->
+          <div class="n-wiz-nav" id="nWizNav" style="display:none;">
+            <button class="n-wiz-back" id="nWizBack" disabled>← もどる</button>
+            <button class="n-wiz-next" id="nWizNext">つぎへ →</button>
+          </div>
         </section>
 
         <!-- 一覧 -->
@@ -154,7 +187,7 @@
       </main>
     </div>
 
-    <!-- ══════════════ シルバー版 ══════════════ -->
+    <!-- ══════════════ らくらくver ══════════════ -->
     <div id="silverApp" style="display:none;">
       <header class="sv-header">
         <div class="sv-header-inner">
@@ -162,7 +195,7 @@
             <button id="svTopPageBtn" class="sv-top-page-btn" title="ロール選択に戻る">🏠 戻る</button>
             <div>
               <div class="sv-header-title">🚲 自転車回収記録</div>
-              <div class="sv-header-badge">シルバー版</div>
+              <div class="sv-header-badge">らくらくver</div>
             </div>
           </div>
           <div id="svSyncBadge" class="sync-badge offline">● オフライン</div>
