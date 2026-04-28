@@ -94,7 +94,7 @@ html, body {
 .n-tab.active { color: #fff; border-bottom-color: #63b3ed; }
 
 /* Main */
-.n-main { padding: 12px 0 80px; }
+.n-main { padding: 12px 0 calc(env(safe-area-inset-bottom, 0px) + 90px); }
 .n-page { display: none; }
 .n-page.active { display: block; }
 
@@ -780,22 +780,60 @@ textarea { resize: vertical; }
 
 /* ─── 通常版ウィザード ───────────────────────────── */
 .n-wiz-progress {
-  padding: 10px 14px 4px; display: flex; align-items: center; gap: 10px;
-  background: #fff; border-bottom: 1px solid var(--bd); position: sticky; top: 53px; z-index: 90;
+  padding: 8px 14px 4px; display: flex; align-items: center; gap: 10px;
+  background: #fff; border-bottom: 1px solid var(--bd);
 }
 .n-wiz-label { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .n-wiz-bar-bg { flex: 1; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
 .n-wiz-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
 .n-wiz-step { display: none; }
 .n-wiz-step.active { display: block; }
-.n-wiz-nav { display: flex; gap: 8px; padding: 10px 12px 12px; background: #fff; border-top: 1px solid var(--bd); position: sticky; bottom: 0; z-index: 90; }
-.n-wiz-back { flex: 1; padding: 12px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; }
-.n-wiz-next { flex: 2; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+/* fixed nav — always visible at bottom of screen */
+.n-wiz-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #fff; border-top: 1.5px solid var(--bd);
+  padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  display: flex; gap: 8px; z-index: 100;
+}
+.n-wiz-back { flex: 1; padding: 13px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 9px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.n-wiz-next { flex: 2; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: 9px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; }
 .n-wiz-back:disabled { opacity: 0.35; pointer-events: none; }
 .n-wiz-next.last { background: #276749; }
 .n-wiz-back:active, .n-wiz-next:active { filter: brightness(.9); }
 .n-wiz-step-title { font-size: 1rem; font-weight: 800; color: var(--header); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--bd); }
 .n-wiz-summary { background: #f8fafc; border: 1.5px solid var(--bd); border-radius: 8px; padding: 10px 12px; }
+/* ─── 通常版スタート画面 ──────────────────────────── */
+.n-start-wrap { padding: 14px; }
+.n-start-inner { text-align: center; }
+.n-start-icon { font-size: 3.5rem; line-height: 1; margin-bottom: 12px; }
+.n-start-title { font-size: 1.35rem; font-weight: 800; color: #1a2e4a; margin-bottom: 14px; line-height: 1.3; }
+.n-start-count-badge {
+  display: inline-block; background: #ebf4ff; color: #2b6cb0;
+  border: 1.5px solid #bee3f8; border-radius: 20px;
+  padding: 4px 16px; font-size: 0.88rem; font-weight: 700; margin-bottom: 16px;
+}
+.n-start-steps {
+  text-align: left; background: #f8fafc; border: 1.5px solid #e2e8f0;
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 20px;
+}
+.n-start-step-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0; font-size: 0.9rem; font-weight: 600; color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+.n-start-step-item:last-child { border-bottom: none; }
+.n-start-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; background: #2b6cb0; color: #fff;
+  border-radius: 50%; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;
+}
+.n-start-btn {
+  width: 100%; padding: 16px;
+  background: #276749; color: #fff; border: none; border-radius: 12px;
+  font-size: 1.15rem; font-weight: 800; cursor: pointer; font-family: inherit;
+  box-shadow: 0 3px 12px rgba(39,103,73,0.25);
+}
+.n-start-btn:active { filter: brightness(.9); }
 
 /* ─── 通常版: らくらく→同義テキスト置換によるバッジ ─ */
 .rakuraku-badge { color: #b8860b; background: #fffff0; border-color: #d4af00; }

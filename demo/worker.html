@@ -37,6 +37,8 @@
         <section id="nRegisterTab" class="n-page active">
           <!-- 登録完了カード（保存後に表示） -->
           <div id="nCompleteCard" class="n-complete-card" style="display:none;"></div>
+          <!-- スタート画面 -->
+          <div id="nStartCard" class="n-start-wrap" style="display:none;"></div>
           <!-- ウィザード進捗バー -->
           <div class="n-wiz-progress" id="nWizProgress" style="display:none;">
             <span class="n-wiz-label" id="nWizLabel">ステップ 1/6</span>
@@ -133,9 +135,8 @@
                   <div id="nWizSummary" class="n-wiz-summary" style="margin-top:10px;"></div>
                 </div>
               </div>
-              <div class="form-actions">
-                <button id="saveBtn" class="btn-primary btn-large">✅ この内容で登録する</button>
-              </div>
+              <!-- saveBtn は JS から trigger するため非表示 -->
+              <button id="saveBtn" style="display:none;"></button>
             </div>
           </div><!-- /nFormCards -->
           <!-- ウィザードナビ -->

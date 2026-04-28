@@ -516,17 +516,61 @@ function initNormalNav() {
 
 // ── 通常版ウィザードコントローラー ──────────────
 let nWizStep = 0;
+let nWizStarted = false;
 const N_WIZ_TOTAL = 6;
 
 function initNormalWizard() {
-  $('nWizProgress').style.display = 'flex';
-  $('nWizNav').style.display = 'flex';
-  nWizGoTo(0);
+  nRenderStart(); // まずスタート画面を表示
   $('nWizBack').addEventListener('click', () => nWizGoTo(nWizStep - 1));
-  $('nWizNext').addEventListener('click', () => {
-    if (!nWizValidate()) return;
-    if (nWizStep < N_WIZ_TOTAL - 1) nWizGoTo(nWizStep + 1);
+  $('nWizNext').addEventListener('click', async () => {
+    if (nWizStep === N_WIZ_TOTAL - 1) {
+      // 最終ステップ → 保存
+      $('saveBtn').click();
+    } else {
+      if (!nWizValidate()) return;
+      nWizGoTo(nWizStep + 1);
+    }
   });
+}
+
+function nRenderStart() {
+  nWizStarted = false;
+  const wrap = $('nStartCard');
+  if (!wrap) return;
+  $('nFormCards').style.display = 'none';
+  $('nWizProgress').style.display = 'none';
+  $('nWizNav').style.display = 'none';
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <div class="card n-start-inner">
+      <div class="n-start-icon">🚲</div>
+      <div class="n-start-title">１台分の自転車を<br>登録します</div>
+      <div class="n-start-count-badge" id="nStartCountBadge" style="display:none;"></div>
+      <div class="n-start-steps">
+        <div class="n-start-step-item"><span class="n-start-step-num">1</span>防犯登録シールの確認</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">2</span>自転車の状態・部位</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">3</span>現在地（GPS）の記録</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">4</span>回収日時・保管場所</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">5</span>備考・入力内容の確認</div>
+      </div>
+      <button class="n-start-btn" id="nStartBtn">▶ 入力を始める</button>
+    </div>`;
+  $('nStartBtn').addEventListener('click', () => {
+    nWizStarted = true;
+    wrap.style.display = 'none';
+    $('nFormCards').style.display = 'block';
+    $('nWizProgress').style.display = 'flex';
+    $('nWizNav').style.display = 'flex';
+    nWizGoTo(0);
+  });
+  countTodayRecords().then(count => {
+    const badge = $('nStartCountBadge');
+    if (count > 0 && badge) {
+      badge.textContent = `本日 ${count} 台完了`;
+      badge.style.display = 'inline-block';
+    }
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function nWizGoTo(step) {
@@ -538,11 +582,12 @@ function nWizGoTo(step) {
   $('nWizFill').style.width = `${((step + 1) / N_WIZ_TOTAL) * 100}%`;
   $('nWizBack').disabled = step === 0;
   const nextBtn = $('nWizNext');
+  nextBtn.style.display = '';
   if (step === N_WIZ_TOTAL - 1) {
-    nextBtn.style.display = 'none';
+    nextBtn.textContent = '✅ 登録する';
+    nextBtn.className = 'n-wiz-next last';
     nWizRenderSummary();
   } else {
-    nextBtn.style.display = '';
     nextBtn.textContent = step === N_WIZ_TOTAL - 2 ? '確認へ →' : 'つぎへ →';
     nextBtn.className = 'n-wiz-next';
   }
@@ -743,9 +788,6 @@ function showNormalComplete(count, regNumber, storageName) {
   window.scrollTo({top:0,behavior:'smooth'});
   $('ncNextBtn').addEventListener('click', ()=>{
     $('nCompleteCard').style.display='none';
-    $('nFormCards').style.display='block';
-    $('nWizProgress').style.display='flex';
-    $('nWizNav').style.display='flex';
     resetNormalForm();
   });
   $('ncListBtn').addEventListener('click', ()=>{
@@ -809,8 +851,7 @@ function resetNormalForm(){
   $('mapsLink').style.display='none';$('locationNote').value='';
   $('storageLocation').value='';$('storageAddress').textContent='';$('notes').value='';
   setDefaultDatetime();
-  nWizGoTo(0);
-  window.scrollTo({top:0,behavior:'smooth'});
+  nRenderStart();
 }
 
 function initList(){
