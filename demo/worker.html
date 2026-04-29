@@ -80,19 +80,12 @@
                 </div>
               </div>
             </div>
-            <!-- Step 2: 対応区分・車体状況 -->
+            <!-- Step 2: 車体状況 -->
             <div class="n-wiz-step" data-step="1">
               <div class="card">
-                <div class="n-wiz-step-title">② 対応区分・車体状況</div>
+                <div class="n-wiz-step-title">② 自転車の状態</div>
                 <div class="form-stack">
-                  <label>対応区分 <span class="req">*</span></label>
-                  <div class="seg-ctrl" id="actionTypeCtrl">
-                    <button class="seg-btn active" data-value="immediate">🚛 即撤去</button>
-                    <button class="seg-btn" data-value="observation">📋 経過観察</button>
-                    <button class="seg-btn" data-value="other">その他</button>
-                  </div>
-                  <div id="actionTypeNote" class="field-hint" style="display:none;color:#1a6b3a;font-weight:600;"></div>
-                  <label style="margin-top:10px;">状態（複数選択可）</label>
+                  <label>状態（複数選択可）</label>
                   <div class="condition-grid" id="conditionGrid"></div>
                   <label style="margin-top:10px;">全体への追記・備考</label>
                   <textarea id="conditionNote" rows="2" placeholder="色・メーカー・特徴など"></textarea>
@@ -122,20 +115,36 @@
                 </div>
               </div>
             </div>
-            <!-- Step 5: 保管場所 -->
+            <!-- Step 5: 対応区分（入力漏れチェック付き） -->
             <div class="n-wiz-step" data-step="4">
+              <div id="nActionCheckList" class="n-action-check-list"></div>
               <div class="card">
-                <div class="n-wiz-step-title">⑤ 搬送先保管場所</div>
+                <div class="n-wiz-step-title">⑤ 対応区分</div>
+                <div class="form-stack">
+                  <label>この自転車をどうしますか？ <span class="req">*</span></label>
+                  <div class="seg-ctrl" id="actionTypeCtrl">
+                    <button class="seg-btn active" data-value="immediate">🚛 即撤去</button>
+                    <button class="seg-btn" data-value="observation">📋 経過観察</button>
+                    <button class="seg-btn" data-value="other">その他</button>
+                  </div>
+                  <div id="actionTypeNote" class="field-hint" style="display:none;color:#1a6b3a;font-weight:600;"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 6: 保管場所 -->
+            <div class="n-wiz-step" data-step="5">
+              <div class="card">
+                <div class="n-wiz-step-title">⑥ 搬送先保管場所</div>
                 <div class="form-stack">
                   <select id="storageLocation"><option value="">選択してください</option></select>
                   <p id="storageAddress" class="field-hint storage-addr"></p>
                 </div>
               </div>
             </div>
-            <!-- Step 6: 備考・確認 -->
-            <div class="n-wiz-step" data-step="5">
+            <!-- Step 7: 備考・確認 -->
+            <div class="n-wiz-step" data-step="6">
               <div class="card">
-                <div class="n-wiz-step-title">⑥ 備考・確認して登録</div>
+                <div class="n-wiz-step-title">⑦ 備考・確認して登録</div>
                 <div class="form-stack">
                   <label>特記事項（任意）</label>
                   <textarea id="notes" rows="3" placeholder="特記事項があれば入力してください"></textarea>

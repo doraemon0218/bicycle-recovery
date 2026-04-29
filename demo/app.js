@@ -529,7 +529,7 @@ function initNormalNav() {
 // ── 通常版ウィザードコントローラー ──────────────
 let nWizStep = 0;
 let nWizStarted = false;
-const N_WIZ_TOTAL = 6;
+const N_WIZ_TOTAL = 7;
 
 function initNormalWizard() {
   nRenderStart(); // まずスタート画面を表示
@@ -560,10 +560,12 @@ function nRenderStart() {
       <div class="n-start-count-badge" id="nStartCountBadge" style="display:none;"></div>
       <div class="n-start-steps">
         <div class="n-start-step-item"><span class="n-start-step-num">1</span>防犯登録シールの確認</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">2</span>自転車の状態・部位</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">2</span>自転車の状態</div>
         <div class="n-start-step-item"><span class="n-start-step-num">3</span>現在地（GPS）の記録</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">4</span>回収日時・保管場所</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">5</span>備考・入力内容の確認</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">4</span>回収日時</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">5</span>対応区分の選択</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">6</span>搬送先保管場所</div>
+        <div class="n-start-step-item"><span class="n-start-step-num">7</span>備考・入力内容の確認</div>
       </div>
       <button class="n-start-btn" id="nStartBtn">▶ 入力を始める</button>
     </div>`;
@@ -603,7 +605,31 @@ function nWizGoTo(step) {
     nextBtn.textContent = step === N_WIZ_TOTAL - 2 ? '確認へ →' : 'つぎへ →';
     nextBtn.className = 'n-wiz-next';
   }
+  if (step === 4) nRenderActionChecklist();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nRenderActionChecklist() {
+  const el = $('nActionCheckList');
+  if (!el) return;
+  const regNum = ($('regNumber')?.value||'').trim();
+  const regText = ns.hasReg === 'yes' ? `あり${regNum ? '（'+regNum+'）' : ''}` : ns.hasReg === 'no' ? 'なし' : '不明';
+  const conds = getSelectedConditions();
+  const dt = $('collectedAt')?.value;
+  const dtText = dt ? new Date(dt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未入力';
+  const items = [
+    { icon:'✅', cls:'ok',   label:'防犯登録',  val:regText },
+    { icon: conds.length ? '✅' : '⚠️', cls: conds.length ? 'ok' : 'warn', label:'車体状況', val: conds.length ? conds.join('、') : '未選択（任意）' },
+    { icon: ns.lat ? '✅' : '⚠️', cls: ns.lat ? 'ok' : 'warn', label:'GPS位置', val: ns.lat ? `取得済み（±${ns.locationAccuracy}m）` : '未取得（任意）' },
+    { icon: dt ? '✅' : '❌', cls: dt ? 'ok' : 'err', label:'回収日時', val: dtText },
+  ];
+  const hasErr = items.some(i => i.cls === 'err');
+  const hasWarn = items.some(i => i.cls === 'warn');
+  el.innerHTML = `<div class="n-action-check-list-inner">
+    <div class="n-action-check-title ${hasErr?'err':hasWarn?'warn':'ok'}">${hasErr?'❌ 入力漏れがあります':hasWarn?'⚠️ 未入力の項目があります':'✅ 前のステップの確認'}</div>
+    ${items.map(i=>`<div class="n-action-check-item ${i.cls}"><span>${i.icon}</span><span class="n-check-label">${i.label}</span><span class="n-check-val">${escHtml(i.val)}</span></div>`).join('')}
+    ${hasErr||hasWarn?`<p class="n-action-check-hint">⚠️ の項目は「もどる」で修正できます</p>`:''}
+  </div>`;
 }
 
 function nWizValidate() {
@@ -619,6 +645,9 @@ function nWizValidate() {
     if (!$('collectedAt').value) { toast('⚠️ 回収日時を入力してください'); return false; }
   }
   if (nWizStep === 4) {
+    if (!ns.actionType) { toast('⚠️ 対応区分を選択してください'); return false; }
+  }
+  if (nWizStep === 5) {
     if (ns.actionType !== 'observation' && !$('storageLocation').value) { toast('⚠️ 保管場所を選択してください'); return false; }
   }
   return true;
@@ -1045,12 +1074,12 @@ const sv = {
   },
 };
 const SV_STEPS = [
-  { id:'action',    title:'この自転車をどうしますか？',   render:svRenderAction },
   { id:'reg',       title:'防犯登録シールについて',       render:svRenderReg },
   { id:'photo',     title:'シールを撮影して番号を入力',   render:svRenderPhoto, skip:()=>sv.state.hasReg!=='yes' },
   { id:'condition', title:'自転車の状態を教えてください', render:svRenderCondition },
   { id:'location',  title:'現在地を記録します',           render:svRenderLocation },
   { id:'datetime',  title:'回収日時を確認してください',   render:svRenderDatetime },
+  { id:'action',    title:'この自転車をどうしますか？',   render:svRenderAction },
   { id:'storage',   title:'保管場所を選んでください',     render:svRenderStorage, skip:()=>sv.state.actionType==='observation' },
   { id:'notes',     title:'特記事項・メモ（任意）',       render:svRenderNotes },
   { id:'confirm',   title:'確認して保存しましょう',       render:svRenderConfirm },
@@ -1205,12 +1234,35 @@ function svValidate(id,errEl){
 }
 
 function svRenderAction(card) {
+  // 前ステップ入力漏れチェック
+  const regText = sv.state.hasReg==='yes'
+    ? `あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':''}`
+    : sv.state.hasReg==='no'?'なし':'不明';
+  const hasCond = sv.state.conditions.length > 0;
+  const hasGps  = !!sv.state.lat;
+  const hasDt   = !!sv.state.collectedAt;
+  const checkItems = [
+    { icon:'✅', cls:'ok',   label:'防犯登録',  val:regText },
+    { icon:hasCond?'✅':'⚠️', cls:hasCond?'ok':'warn', label:'自転車の状態', val:hasCond?sv.state.conditions.join('、'):'未選択（任意）' },
+    { icon:hasGps?'✅':'⚠️',  cls:hasGps?'ok':'warn',  label:'GPS位置',     val:hasGps?`取得済み（±${sv.state.locationAccuracy}m）`:'未取得（任意）' },
+    { icon:hasDt?'✅':'❌',   cls:hasDt?'ok':'err',    label:'回収日時',    val:hasDt?formatDatetimeJa(sv.state.collectedAt):'未入力' },
+  ];
+  const hasErr  = checkItems.some(i=>i.cls==='err');
+  const hasWarn = checkItems.some(i=>i.cls==='warn');
+
   const opts = [
     { val:'immediate',   icon:'🚛', label:'すぐに撤去する',           sub:'今すぐ引き取って保管場所に運びます' },
     { val:'observation', icon:'📋', label:'シールを貼って様子を見る', sub:'違反者シールを貼り、その場に残します' },
     { val:'other',       icon:'📝', label:'その他',                   sub:'担当者に確認してください' },
   ];
-  card.innerHTML += `<p class="sv-step-hint">この自転車をどう対応するか選んでください</p>
+
+  card.innerHTML += `
+    <div class="sv-action-check">
+      <div class="sv-action-check-title ${hasErr?'err':hasWarn?'warn':'ok'}">${hasErr?'❌ 入力漏れがあります':hasWarn?'⚠️ 未入力の項目があります':'✅ ここまでの入力確認'}</div>
+      ${checkItems.map(i=>`<div class="sv-action-check-item ${i.cls}"><span>${i.icon}</span><span>${i.label}</span><span class="sv-action-check-val">${escHtml(i.val)}</span></div>`).join('')}
+      ${hasErr||hasWarn?`<p class="sv-action-check-hint">⚠️ の項目は「もどる」で修正できます</p>`:''}
+    </div>
+    <p class="sv-step-hint" style="margin-top:14px;">この自転車をどう対応するか選んでください</p>
     <div class="sv-choice-grid">
       ${opts.map(o=>`
         <button class="sv-choice-btn${sv.state.actionType===o.val?' selected':''}" data-action="${o.val}">
