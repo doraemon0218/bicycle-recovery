@@ -18,6 +18,15 @@ const BICYCLE_PARTS = [
   { id:'ch', label:'チェーン', cx:118, cy:154, r:13 },
   { id:'lt', label:'ライト',   cx:272, cy:135, r:13 },
 ];
+const ACTION_TYPES = [
+  { value: 'immediate',   label: '即撤去',               icon: '🚛' },
+  { value: 'observation', label: '違反者シール・経過観察', icon: '📋' },
+  { value: 'other',       label: 'その他',                icon: '📝' },
+];
+function actionTypeLabel(val) {
+  return ACTION_TYPES.find(a => a.value === val)?.label || '';
+}
+
 const SV_CONDITION_OPTIONS = [
   { icon: '✅', label: '特に問題なし' },
   { icon: '🔧', label: '傷・へこみあり' },
@@ -306,8 +315,9 @@ async function exportTodayCSV(endTime) {
   const todayRecs = records.filter(r => new Date(r.collectedAt).toDateString() === today)
     .sort((a, b) => new Date(a.collectedAt) - new Date(b.collectedAt));
   if (!todayRecs.length) { toast('本日の回収データがありません'); return; }
-  const headers = ['管理ID','回収日時','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
-  const rows = todayRecs.map(r => [r.id, new Date(r.collectedAt).toLocaleString('ja-JP'), r.registrationNumber||'',
+  const headers = ['管理ID','回収日時','対応区分','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
+  const rows = todayRecs.map(r => [r.id, new Date(r.collectedAt).toLocaleString('ja-JP'),
+    actionTypeLabel(r.actionType||'immediate'), r.registrationNumber||'',
     {yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'',
     conditionRichText(r.conditions, r.conditionDetails), r.conditionNote||'',
     r.lat!=null?r.lat.toFixed(6):'', r.lng!=null?r.lng.toFixed(6):'', r.locationAccuracy??'',
@@ -471,6 +481,7 @@ const ns = {
   lat: null, lng: null, locationAccuracy: null,
   ocrPrediction: '', inputMethod: 'manual',
   conditionDetails: {},
+  actionType: 'immediate',
 };
 
 function initNormalApp() {
@@ -478,6 +489,7 @@ function initNormalApp() {
   buildStorageSelects();
   initNormalNav();
   initRegSection();
+  initActionType();
   initPhotoCapture();
   initGeolocation();
   initSave();
@@ -607,7 +619,7 @@ function nWizValidate() {
     if (!$('collectedAt').value) { toast('⚠️ 回収日時を入力してください'); return false; }
   }
   if (nWizStep === 4) {
-    if (!$('storageLocation').value) { toast('⚠️ 保管場所を選択してください'); return false; }
+    if (ns.actionType !== 'observation' && !$('storageLocation').value) { toast('⚠️ 保管場所を選択してください'); return false; }
   }
   return true;
 }
@@ -619,12 +631,14 @@ function nWizRenderSummary() {
     : ns.hasReg === 'no' ? 'なし' : '不明';
   const conds = getSelectedConditions();
   const loc = STORAGE_LOCATIONS.find(l => l.id === $('storageLocation').value);
+  const isObservation = ns.actionType === 'observation';
   const items = [
+    { label:'対応区分', val:actionTypeLabel(ns.actionType)||'未選択', ok:!!ns.actionType },
     { label:'防犯登録', val:regText, ok:true },
     { label:'車体状況', val:conds.length ? conditionRichText(conds, ns.conditionDetails) : '（選択なし）', ok:true },
     { label:'GPS', val:ns.lat ? `取得済み（±${ns.locationAccuracy}m）` : '未取得', ok:!!ns.lat, warn:!ns.lat },
     { label:'回収日時', val:$('collectedAt')?.value ? new Date($('collectedAt').value).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未入力', ok:!!$('collectedAt')?.value, err:!$('collectedAt')?.value },
-    { label:'保管場所', val:loc ? loc.name : '未選択', ok:!!loc, err:!loc },
+    { label:'保管場所', val:isObservation ? '（経過観察のため不要）' : loc ? loc.name : '未選択', ok: isObservation || !!loc, err: !isObservation && !loc },
   ];
   el.innerHTML = `<div style="font-size:0.82rem;font-weight:700;color:var(--header);margin-bottom:8px;">入力内容の確認</div>` +
     items.map(i => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);font-size:0.82rem;">
@@ -664,6 +678,27 @@ function updateRegMatch() {
   } else {
     el.className = 'reg-match error'; el.textContent = '❌ 一致しません。どちらかを修正してください。';
   }
+}
+
+function initActionType() {
+  const ACTION_NOTE = {
+    immediate:   '',
+    observation: '📋 違反者シールを貼付して、その場に残します。保管場所の選択は不要です。',
+    other:       '',
+  };
+  document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      ns.actionType = btn.dataset.value;
+      const noteEl = $('actionTypeNote');
+      if (noteEl) {
+        const note = ACTION_NOTE[ns.actionType] || '';
+        noteEl.textContent = note;
+        noteEl.style.display = note ? 'block' : 'none';
+      }
+    });
+  });
 }
 
 function initPhotoCapture() {
@@ -801,7 +836,7 @@ function initSave() {
   $('saveBtn').addEventListener('click', async ()=>{
     const collectedAt=$('collectedAt').value, storageId=$('storageLocation').value;
     if(!collectedAt){toast('⚠️ 回収日時を入力してください');return;}
-    if(!storageId){toast('⚠️ 保管場所を選択してください');return;}
+    if(ns.actionType!=='observation'&&!storageId){toast('⚠️ 保管場所を選択してください');return;}
     if(ns.hasReg==='yes'){
       const v1=($('regNumber')?.value||'').trim();
       const v2=($('regNumberConfirm')?.value||'').trim();
@@ -811,6 +846,7 @@ function initSave() {
     const regNum = ns.hasReg==='yes' ? ($('regNumber')?.value.trim()||'') : '';
     const loc = STORAGE_LOCATIONS.find(l=>l.id===storageId);
     await saveRecord({
+      actionType:ns.actionType||'immediate',
       hasRegistration:ns.hasReg,
       registrationNumber:regNum,
       photoDataUrl:ns.hasReg==='yes'?(ns.photoDataUrl||null):null,
@@ -835,7 +871,9 @@ async function saveRecord(data) {
 
 function resetNormalForm(){
   ns.hasReg='yes';ns.photoDataUrl=null;ns.lat=null;ns.lng=null;ns.locationAccuracy=null;
-  ns.ocrPrediction='';ns.inputMethod='manual';
+  ns.ocrPrediction='';ns.inputMethod='manual';ns.actionType='immediate';
+  document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach((b,i)=>b.classList.toggle('active',b.dataset.value==='immediate'));
+  const noteEl=$('actionTypeNote');if(noteEl){noteEl.textContent='';noteEl.style.display='none';}
   document.querySelectorAll('#hasRegCtrl .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   $('regSection').style.display='block';
   $('photoPreview').style.display='none';$('photoPlaceholder').style.display='flex';
@@ -938,8 +976,9 @@ async function exportCSV(all=false){
   const records=await dbGetAll();const{from,to}=getExportRange();
   const target=(all?records:records.filter(r=>inRange(r.collectedAt,from,to))).sort((a,b)=>new Date(a.collectedAt)-new Date(b.collectedAt));
   if(!target.length){toast('該当データがありません');return;}
-  const headers=['管理ID','回収日時','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
-  const rows=target.map(r=>[r.id,new Date(r.collectedAt).toLocaleString('ja-JP'),r.registrationNumber||'',
+  const headers=['管理ID','回収日時','対応区分','登録番号','防犯登録','車体状況','状況備考','緯度','経度','GPS精度(m)','場所目印','保管場所','保管住所','備考','送信済み','作成日時'];
+  const rows=target.map(r=>[r.id,new Date(r.collectedAt).toLocaleString('ja-JP'),
+    actionTypeLabel(r.actionType||'immediate'),r.registrationNumber||'',
     {yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'',conditionRichText(r.conditions,r.conditionDetails),r.conditionNote||'',
     r.lat!=null?r.lat.toFixed(6):'',r.lng!=null?r.lng.toFixed(6):'',r.locationAccuracy??'',r.locationNote||'',
     r.storageLocationName||'',r.storageLocationAddress||'',r.notes||'',r.synced?'済み':'未',new Date(r.createdAt).toLocaleString('ja-JP')]);
@@ -969,6 +1008,7 @@ window.openDetail=async function(id){
   $('modalContent').innerHTML=`
     <div class="detail-title">回収記録詳細</div>
     ${r.photoDataUrl?`<img class="detail-photo" src="${r.photoDataUrl}" alt="防犯登録シール">`:''}
+    <div class="detail-row"><span class="detail-label">対応区分</span><span class="detail-val">${escHtml(actionTypeLabel(r.actionType||'immediate'))}</span></div>
     <div class="detail-row"><span class="detail-label">防犯登録</span><span class="detail-val">${hasRegText}</span></div>
     ${r.registrationNumber?`<div class="detail-row"><span class="detail-label">登録番号</span><span class="detail-val">${escHtml(r.registrationNumber)}</span></div>`:''}
     <div class="detail-row"><span class="detail-label">回収日時</span><span class="detail-val">${dt}</span></div>
@@ -995,6 +1035,7 @@ const sv = {
   started: false,
   liveClock: null,  // setInterval ID for the datetime step live clock
   state: {
+    actionType:null,
     hasReg:null, photoDataUrl:null,
     regNumber:'', regNumberConfirm:'',
     ocrPrediction:'', inputMethod:'manual',
@@ -1004,12 +1045,13 @@ const sv = {
   },
 };
 const SV_STEPS = [
+  { id:'action',    title:'この自転車をどうしますか？',   render:svRenderAction },
   { id:'reg',       title:'防犯登録シールについて',       render:svRenderReg },
   { id:'photo',     title:'シールを撮影して番号を入力',   render:svRenderPhoto, skip:()=>sv.state.hasReg!=='yes' },
   { id:'condition', title:'自転車の状態を教えてください', render:svRenderCondition },
   { id:'location',  title:'現在地を記録します',           render:svRenderLocation },
   { id:'datetime',  title:'回収日時を確認してください',   render:svRenderDatetime },
-  { id:'storage',   title:'保管場所を選んでください',     render:svRenderStorage },
+  { id:'storage',   title:'保管場所を選んでください',     render:svRenderStorage, skip:()=>sv.state.actionType==='observation' },
   { id:'notes',     title:'特記事項・メモ（任意）',       render:svRenderNotes },
   { id:'confirm',   title:'確認して保存しましょう',       render:svRenderConfirm },
 ];
@@ -1052,7 +1094,7 @@ function svResetState() {
   sv.currentStep = 0;
   sv.started = false;
   clearInterval(sv.liveClock); sv.liveClock = null;
-  sv.state = {hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionDetails:{},conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
+  sv.state = {actionType:null,hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionDetails:{},conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
 }
 
 function svGoHome() {
@@ -1151,6 +1193,7 @@ function svNext() {
 function svPrev(){if(sv.currentStep>0){sv.currentStep--;svRenderCurrentStep();}}
 function svValidate(id,errEl){
   const show=msg=>{if(errEl){errEl.textContent='⚠️ '+msg;errEl.classList.add('show');}else toast('⚠️ '+msg);return false;};
+  if(id==='action'&&!sv.state.actionType)return show('どうするか選んでください');
   if(id==='reg'&&sv.state.hasReg===null)return show('シールの有無を選んでください');
   if(id==='photo'){
     const v1=sv.state.regNumber.trim(), v2=sv.state.regNumberConfirm.trim();
@@ -1159,6 +1202,32 @@ function svValidate(id,errEl){
   }
   if(id==='storage'&&!sv.state.storageId)return show('保管場所を選んでください');
   return true;
+}
+
+function svRenderAction(card) {
+  const opts = [
+    { val:'immediate',   icon:'🚛', label:'すぐに撤去する',           sub:'今すぐ引き取って保管場所に運びます' },
+    { val:'observation', icon:'📋', label:'シールを貼って様子を見る', sub:'違反者シールを貼り、その場に残します' },
+    { val:'other',       icon:'📝', label:'その他',                   sub:'担当者に確認してください' },
+  ];
+  card.innerHTML += `<p class="sv-step-hint">この自転車をどう対応するか選んでください</p>
+    <div class="sv-choice-grid">
+      ${opts.map(o=>`
+        <button class="sv-choice-btn${sv.state.actionType===o.val?' selected':''}" data-action="${o.val}">
+          <span class="sv-choice-icon">${o.icon}</span>
+          <span class="sv-choice-label">${o.label}</span>
+          <span class="sv-choice-sub">${o.sub}</span>
+        </button>`).join('')}
+    </div>
+    <div class="sv-error-msg" id="svErr"></div>`;
+  card.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sv.state.actionType = btn.dataset.action;
+      card.querySelectorAll('[data-action]').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const err=$('svErr'); if(err){err.textContent='';err.classList.remove('show');}
+    });
+  });
 }
 
 function svRenderReg(card) {
@@ -1394,12 +1463,14 @@ function svRenderConfirm(card) {
   const loc=STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
   const regText=sv.state.hasReg==='yes'?`あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':'（番号未入力）'}`:sv.state.hasReg==='no'?'なし':'不明';
   const dtText=sv.state.collectedAt?formatDatetimeJa(sv.state.collectedAt):formatDatetimeJa(new Date().toISOString().slice(0,16));
+  const isObservation = sv.state.actionType === 'observation';
   const items=[
+    {label:'対応区分',val:actionTypeLabel(sv.state.actionType)||'（未選択）',status:sv.state.actionType?'ok':'missing'},
     {label:'防犯登録',val:regText,status:'ok'},
     {label:'自転車の状態',val:sv.state.conditions.length?sv.state.conditions.join('、'):'（選択なし）',status:sv.state.conditions.length?'ok':'warn'},
     {label:'現在地',val:sv.state.lat?`取得済み（±${sv.state.locationAccuracy}m）`:'未取得',status:sv.state.lat?'ok':'warn'},
     {label:'回収日時',val:dtText,status:'ok'},
-    {label:'保管場所',val:loc?loc.name:'（未選択）',status:loc?'ok':'missing'},
+    {label:'保管場所',val:isObservation?'経過観察のため不要':loc?loc.name:'（未選択）',status:isObservation?'ok':loc?'ok':'missing'},
     {label:'メモ',val:sv.state.notes||'（なし）',status:'ok'},
   ];
   const icons={ok:'✅',warn:'⚠️',missing:'❌'};
@@ -1414,19 +1485,20 @@ function svRenderConfirm(card) {
 }
 
 async function svSave(){
-  if(!sv.state.storageId){toast('⚠️ 保管場所を選んでください');sv.currentStep=svActiveSteps().findIndex(s=>s.id==='storage');svRenderCurrentStep();return;}
+  if(sv.state.actionType!=='observation'&&!sv.state.storageId){toast('⚠️ 保管場所を選んでください');sv.currentStep=svActiveSteps().findIndex(s=>s.id==='storage');svRenderCurrentStep();return;}
   try{
     const collectedAt = sv.state.collectedAt
       ? new Date(sv.state.collectedAt).toISOString()
       : new Date().toISOString();
     await saveRecord({
+      actionType:sv.state.actionType||'immediate',
       hasRegistration:sv.state.hasReg||'unknown',
       registrationNumber:sv.state.regNumber||'',photoDataUrl:sv.state.photoDataUrl||null,
       ocrPrediction:sv.state.ocrPrediction||'',inputMethod:sv.state.inputMethod||'manual',
       conditions:sv.state.conditions,conditionDetails:sv.state.conditionDetails,conditionNote:sv.state.conditionNote||'',
       lat:sv.state.lat,lng:sv.state.lng,locationAccuracy:sv.state.locationAccuracy,
       locationNote:'',collectedAt,
-      storageLocationId:sv.state.storageId,notes:sv.state.notes||'',
+      storageLocationId:sv.state.storageId||'',notes:sv.state.notes||'',
     });
     sv.started = false;
     const count = await countTodayRecords();
