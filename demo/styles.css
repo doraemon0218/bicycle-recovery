@@ -1120,11 +1120,44 @@ textarea { resize: vertical; }
     display: block !important;
     position: fixed; top: 0; left: 0; width: 100%;
   }
-  #printArea .notice-slip {
-    font-size: 11pt; padding: 15mm;
-  }
+  #printArea .notice-slip { font-size: 11pt; padding: 15mm; }
   #printArea .notice-title { font-size: 14pt; }
+  .qr-print-slip { page-break-inside: avoid; }
 }
+
+/* QR印刷スリップ */
+.qr-print-slip {
+  font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  max-width: 360px; margin: 0 auto; padding: 16px;
+  text-align: center; border: 2px solid #1a2e4a; border-radius: 8px;
+}
+.qr-print-title {
+  font-size: 1.1rem; font-weight: 900; color: #1a2e4a;
+  border-bottom: 2px solid #1a2e4a; padding-bottom: 8px; margin-bottom: 8px;
+}
+.qr-print-id {
+  font-size: 1.4rem; font-weight: 900; color: #c53030;
+  margin-bottom: 10px; letter-spacing: 0.05em;
+}
+.qr-print-img {
+  display: block; margin: 0 auto 8px; width: 200px; height: 200px;
+}
+.qr-print-label {
+  font-size: 0.72rem; color: #555; margin-bottom: 10px;
+}
+.qr-print-table {
+  width: 100%; border-collapse: collapse; font-size: 0.8rem;
+  text-align: left; margin-bottom: 10px;
+}
+.qr-print-table th {
+  background: #eef2f7; color: #1a2e4a; font-weight: 700;
+  padding: 4px 8px; width: 36%; white-space: nowrap;
+}
+.qr-print-table td { padding: 4px 8px; color: #333; }
+.qr-print-body {
+  font-size: 0.75rem; color: #333; text-align: left; line-height: 1.6;
+}
+.qr-print-body p { margin: 3px 0; }
 
 /* QRコードセクション */
 .notice-main {

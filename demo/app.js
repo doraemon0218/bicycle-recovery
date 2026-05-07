@@ -656,7 +656,7 @@ function p1ShowComplete(seqNum, count, record) {
     <div class="nc-reg">🔖 ID：${fmtSeqId(seqNum)}</div>
     <div class="nc-storage">${np1.lat ? `📍 GPS済み（±${np1.locationAccuracy}m）` : '📍 GPS未取得'}</div>
     <div class="nc-storage">📷 写真 ${np1.photos.length}枚</div>
-    <button class="p1-qr-btn" id="p1QrBtn">📱 QRコードを表示</button>
+    <button class="p1-qr-btn" id="p1QrBtn">🖨 QRコードを印刷する</button>
     <button class="nc-next-btn" id="p1NextBtn">▶ 次の自転車へ</button>
     <button class="nc-list-btn" id="p1GoDetailBtn">📝 詳細入力へ</button>`;
   card.style.display = 'block';
@@ -715,21 +715,33 @@ async function showQROnly(record) {
   let qrDataUrl = '';
   try {
     if (typeof QRCode !== 'undefined') {
-      qrDataUrl = await QRCode.toDataURL(qrText, { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } });
+      qrDataUrl = await QRCode.toDataURL(qrText, { width: 260, margin: 2, color: { dark: '#000', light: '#fff' } });
     }
   } catch (e) {}
 
-  $('modalContent').innerHTML = `
-    <div class="detail-title">📱 QRコード — ${escHtml(seqId)}</div>
-    <div class="qr-only-wrap">
-      ${qrDataUrl
-        ? `<img src="${qrDataUrl}" class="qr-only-img" alt="QRコード" />`
-        : '<p class="muted center">QRコード生成に失敗しました</p>'}
-      <div class="qr-only-text">${escHtml(qrText)}</div>
-    </div>
-    <button class="btn-secondary" style="margin-top:16px;width:100%;"
-      onclick="document.getElementById('modal').style.display='none'">閉じる</button>`;
-  $('modal').style.display = 'flex';
+  // printArea にセットして印刷ダイアログを開く
+  const printArea = $('printArea');
+  if (printArea) {
+    printArea.innerHTML = `
+      <div class="qr-print-slip">
+        <div class="qr-print-title">放置自転車 撤去警告書</div>
+        <div class="qr-print-id">管理番号：${escHtml(seqId)}</div>
+        ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-print-img" alt="QRコード" />` : ''}
+        <div class="qr-print-label">このQRコードをスキャンすると撤去情報を確認できます</div>
+        <table class="qr-print-table">
+          <tr><th>発見日時</th><td>${fmtDate(foundAt)} ${fmtTime(foundAt)}</td></tr>
+          <tr><th>撤去予定日</th><td>${fmtDate(removalDate)}</td></tr>
+          <tr><th>発見位置</th><td>${escHtml(gpsLine)}</td></tr>
+        </table>
+        <div class="qr-print-body">
+          <p>${escHtml(ordinance)}に基づき、放置自転車として確認・登録されました。</p>
+          <p>撤去予定日までにお引き取りにならない場合、撤去・保管いたします。</p>
+          <p>撤去後の返還には保管料 ${escHtml(fee)} が必要です。</p>
+          <p>お問い合わせ先：${escHtml(phone)}</p>
+        </div>
+      </div>`;
+  }
+  window.print();
 }
 
 // ── 警告票（放置自転車所有者向け通知）─────────────
