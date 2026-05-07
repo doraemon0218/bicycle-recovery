@@ -641,6 +641,7 @@ async function p1Save() {
     });
     p1ShowComplete(seqNum, todayCount + 1, record);
     updatePhase2Badge();
+    showWarningNotice(record);
   } catch (err) {
     toast('❌ 保存失敗: ' + err.message);
     if (saveBtn) saveBtn.disabled = false;
@@ -683,7 +684,6 @@ function p1Reset() {
 }
 
 // ── 警告票（放置自転車所有者向け通知）─────────────
-const NOTICE_QR_URL = 'https://www.tenriyorozu.jp/';
 
 async function showWarningNotice(record) {
   const ns = getNoticeSettings();
@@ -700,19 +700,32 @@ async function showWarningNotice(record) {
   const fee = ns.storageFee || '（別途通知）';
   const phone = ns.contactPhone || '（担当窓口へお問い合わせください）';
 
+  // QRコードに埋め込むテキスト（自転車情報＋定型文）
+  const qrText = [
+    '【放置自転車 撤去警告書】',
+    `管理番号: ${seqId}`,
+    `発見日時: ${fmtDate(foundAt)} ${fmtTime(foundAt)}`,
+    `撤去予定日: ${fmtDate(removalDate)}`,
+    `発見位置: ${gpsLine}`,
+    '',
+    `この自転車は${ordinance}に基づき、放置自転車として確認・登録されました。`,
+    `上記の撤去予定日までにお引き取りにならない場合、撤去・保管いたします。`,
+    `撤去後の返還には保管料 ${fee} が必要です。`,
+    `お問い合わせ先: ${phone}`,
+  ].join('\n');
+
   // QRコード生成（データURL）
   let qrDataUrl = '';
   try {
     if (typeof QRCode !== 'undefined') {
-      qrDataUrl = await QRCode.toDataURL(NOTICE_QR_URL, { width: 160, margin: 2, color: { dark: '#000', light: '#fff' } });
+      qrDataUrl = await QRCode.toDataURL(qrText, { width: 180, margin: 2, color: { dark: '#000', light: '#fff' } });
     }
   } catch (e) { /* QRコード生成失敗時はスキップ */ }
 
   const qrSection = qrDataUrl ? `
     <div class="notice-qr-section">
       <img src="${qrDataUrl}" class="notice-qr-img" alt="QRコード" />
-      <div class="notice-qr-label">詳細・お問い合わせはこちら</div>
-      <div class="notice-qr-url">${escHtml(NOTICE_QR_URL)}</div>
+      <div class="notice-qr-label">この警告票の情報</div>
     </div>` : '';
 
   const noticeHtml = `
