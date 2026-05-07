@@ -656,7 +656,7 @@ function p1ShowComplete(seqNum, count, record) {
     <div class="nc-reg">🔖 ID：${fmtSeqId(seqNum)}</div>
     <div class="nc-storage">${np1.lat ? `📍 GPS済み（±${np1.locationAccuracy}m）` : '📍 GPS未取得'}</div>
     <div class="nc-storage">📷 写真 ${np1.photos.length}枚</div>
-    <button class="p1-qr-btn" id="p1QrBtn">🖨 QRコードを印刷する</button>
+    <button class="p1-qr-btn" id="p1QrBtn">📱 QRコードへ →</button>
     <button class="nc-next-btn" id="p1NextBtn">▶ 次の自転車へ</button>
     <button class="nc-list-btn" id="p1GoDetailBtn">📝 詳細入力へ</button>`;
   card.style.display = 'block';
@@ -719,29 +719,57 @@ async function showQROnly(record) {
     }
   } catch (e) {}
 
-  // printArea にセットして印刷ダイアログを開く
+  // printArea にも同内容をセット（印刷時に使用）
+  const slipHtml = `
+    <div class="qr-print-slip">
+      <div class="qr-print-title">放置自転車 撤去警告書</div>
+      <div class="qr-print-id">管理番号：${escHtml(seqId)}</div>
+      ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-print-img" alt="QRコード" />` : ''}
+      <div class="qr-print-label">このQRコードをスキャンすると撤去情報を確認できます</div>
+      <table class="qr-print-table">
+        <tr><th>発見日時</th><td>${fmtDate(foundAt)} ${fmtTime(foundAt)}</td></tr>
+        <tr><th>撤去予定日</th><td>${fmtDate(removalDate)}</td></tr>
+        <tr><th>発見位置</th><td>${escHtml(gpsLine)}</td></tr>
+      </table>
+      <div class="qr-print-body">
+        <p>${escHtml(ordinance)}に基づき、放置自転車として確認・登録されました。</p>
+        <p>撤去予定日までにお引き取りにならない場合、撤去・保管いたします。</p>
+        <p>撤去後の返還には保管料 ${escHtml(fee)} が必要です。</p>
+        <p>お問い合わせ先：${escHtml(phone)}</p>
+      </div>
+    </div>`;
   const printArea = $('printArea');
-  if (printArea) {
-    printArea.innerHTML = `
-      <div class="qr-print-slip">
-        <div class="qr-print-title">放置自転車 撤去警告書</div>
-        <div class="qr-print-id">管理番号：${escHtml(seqId)}</div>
-        ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-print-img" alt="QRコード" />` : ''}
-        <div class="qr-print-label">このQRコードをスキャンすると撤去情報を確認できます</div>
-        <table class="qr-print-table">
-          <tr><th>発見日時</th><td>${fmtDate(foundAt)} ${fmtTime(foundAt)}</td></tr>
-          <tr><th>撤去予定日</th><td>${fmtDate(removalDate)}</td></tr>
-          <tr><th>発見位置</th><td>${escHtml(gpsLine)}</td></tr>
-        </table>
-        <div class="qr-print-body">
-          <p>${escHtml(ordinance)}に基づき、放置自転車として確認・登録されました。</p>
-          <p>撤去予定日までにお引き取りにならない場合、撤去・保管いたします。</p>
-          <p>撤去後の返還には保管料 ${escHtml(fee)} が必要です。</p>
-          <p>お問い合わせ先：${escHtml(phone)}</p>
-        </div>
-      </div>`;
-  }
-  window.print();
+  if (printArea) printArea.innerHTML = slipHtml;
+
+  // 完了カードをQR表示画面に切り替え（画面遷移）
+  const card = $('p1CompleteCard');
+  if (!card) return;
+  card.innerHTML = `
+    <div class="qr-screen-header">
+      <div class="qr-screen-id">📋 ${escHtml(seqId)}</div>
+      <div class="qr-screen-label">QRコード</div>
+    </div>
+    <div class="qr-screen-img-wrap">
+      ${qrDataUrl
+        ? `<img src="${qrDataUrl}" class="qr-screen-img" alt="QRコード" />`
+        : '<p class="muted center">QRコード生成に失敗しました</p>'}
+    </div>
+    <div class="qr-screen-info">
+      <div class="qr-screen-row"><span>発見日時</span><span>${fmtDate(foundAt)} ${fmtTime(foundAt)}</span></div>
+      <div class="qr-screen-row"><span>撤去予定日</span><span>${fmtDate(removalDate)}</span></div>
+    </div>
+    <div class="qr-screen-btns">
+      <button class="btn-primary qr-screen-print-btn" id="qrPrintBtn">🖨 印刷する</button>
+      <button class="nc-next-btn" id="qrNextBtn">▶ 次の自転車へ</button>
+      <button class="nc-list-btn" id="qrDetailBtn">📝 詳細入力へ</button>
+    </div>`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('qrPrintBtn').addEventListener('click', () => window.print());
+  $('qrNextBtn').addEventListener('click', p1Reset);
+  $('qrDetailBtn').addEventListener('click', () => {
+    p1Reset();
+    document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
+  });
 }
 
 // ── 警告票（放置自転車所有者向け通知）─────────────
