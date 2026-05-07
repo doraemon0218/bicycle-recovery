@@ -476,357 +476,14 @@ function updateSyncBadge() {
 }
 
 // ── 通常版 ─────────────────────────────────────
-const ns = {
-  hasReg: 'yes', photoDataUrl: null,
-  lat: null, lng: null, locationAccuracy: null,
-  ocrPrediction: '', inputMethod: 'manual',
-  conditionDetails: {},
-  actionType: 'immediate',
-};
+function fmtSeqId(n) { return '#' + String(n).padStart(3, '0'); }
 
-function initNormalApp() {
-  buildNormalConditionGrid();
-  buildStorageSelects();
-  initNormalNav();
-  initRegSection();
-  initActionType();
-  initPhotoCapture();
-  initGeolocation();
-  initSave();
-  initList();
-  initExport();
-  initNormalWizard();
-  setDefaultDatetime();
-  $('setNowBtn')?.addEventListener('click', setDefaultDatetime);
-  // ロール選択（トップ）に戻るボタン
-  $('nTopPageBtn')?.addEventListener('click', () => {
-    const formVisible = $('nFormCards')?.style.display !== 'none';
-    const hasData = formVisible && (
-      ($('regNumber')?.value || '').trim() !== '' ||
-      getSelectedConditions().length > 0 ||
-      ($('locationNote')?.value || '').trim() !== '' ||
-      ($('notes')?.value || '').trim() !== ''
-    );
-    if (hasData && !confirm('この自転車（１台分）の登録は中断されますが、よろしいですか？')) return;
-    window.location.href = './index.html';
-  });
+function getNoticeSettings() {
+  try { return { daysUntilRemoval:7, contactPhone:'', storageFee:'', ordinanceName:'',
+    ...JSON.parse(localStorage.getItem('noticeSettings')||'{}') }; }
+  catch { return { daysUntilRemoval:7, contactPhone:'', storageFee:'', ordinanceName:'' }; }
 }
-
-function initNormalNav() {
-  document.querySelectorAll('.n-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.n-tab').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.n-page').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      const page = btn.dataset.nTab;
-      $(`n${page.charAt(0).toUpperCase()+page.slice(1)}Tab`).classList.add('active');
-      if(page==='list') renderList();
-      if(page==='export') renderExportSummary();
-    });
-  });
-}
-
-// ── 通常版ウィザードコントローラー ──────────────
-let nWizStep = 0;
-let nWizStarted = false;
-const N_WIZ_TOTAL = 7;
-
-function initNormalWizard() {
-  nRenderStart(); // まずスタート画面を表示
-  $('nWizBack').addEventListener('click', () => nWizGoTo(nWizStep - 1));
-  $('nWizNext').addEventListener('click', async () => {
-    if (nWizStep === N_WIZ_TOTAL - 1) {
-      // 最終ステップ → 保存
-      $('saveBtn').click();
-    } else {
-      if (!nWizValidate()) return;
-      nWizGoTo(nWizStep + 1);
-    }
-  });
-}
-
-function nRenderStart() {
-  nWizStarted = false;
-  const wrap = $('nStartCard');
-  if (!wrap) return;
-  $('nFormCards').style.display = 'none';
-  $('nWizProgress').style.display = 'none';
-  $('nWizNav').style.display = 'none';
-  wrap.style.display = 'block';
-  wrap.innerHTML = `
-    <div class="card n-start-inner">
-      <div class="n-start-icon">🚲</div>
-      <div class="n-start-title">１台分の自転車を<br>登録します</div>
-      <div class="n-start-count-badge" id="nStartCountBadge" style="display:none;"></div>
-      <div class="n-start-steps">
-        <div class="n-start-step-item"><span class="n-start-step-num">1</span>防犯登録シールの確認</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">2</span>自転車の状態</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">3</span>現在地（GPS）の記録</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">4</span>回収日時</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">5</span>対応区分の選択</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">6</span>搬送先保管場所</div>
-        <div class="n-start-step-item"><span class="n-start-step-num">7</span>備考・入力内容の確認</div>
-      </div>
-      <button class="n-start-btn" id="nStartBtn">▶ 入力を始める</button>
-    </div>`;
-  $('nStartBtn').addEventListener('click', () => {
-    nWizStarted = true;
-    wrap.style.display = 'none';
-    $('nFormCards').style.display = 'block';
-    $('nWizProgress').style.display = 'flex';
-    $('nWizNav').style.display = 'flex';
-    nWizGoTo(0);
-  });
-  countTodayRecords().then(count => {
-    const badge = $('nStartCountBadge');
-    if (count > 0 && badge) {
-      badge.textContent = `本日 ${count} 台完了`;
-      badge.style.display = 'inline-block';
-    }
-  });
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function nWizGoTo(step) {
-  document.querySelectorAll('.n-wiz-step').forEach(s => s.classList.remove('active'));
-  const target = document.querySelector(`.n-wiz-step[data-step="${step}"]`);
-  if (target) target.classList.add('active');
-  nWizStep = step;
-  $('nWizLabel').textContent = `ステップ ${step + 1} / ${N_WIZ_TOTAL}`;
-  $('nWizFill').style.width = `${((step + 1) / N_WIZ_TOTAL) * 100}%`;
-  $('nWizBack').disabled = step === 0;
-  const nextBtn = $('nWizNext');
-  nextBtn.style.display = '';
-  if (step === N_WIZ_TOTAL - 1) {
-    nextBtn.textContent = '✅ 登録する';
-    nextBtn.className = 'n-wiz-next last';
-    nWizRenderSummary();
-  } else {
-    nextBtn.textContent = step === N_WIZ_TOTAL - 2 ? '確認へ →' : 'つぎへ →';
-    nextBtn.className = 'n-wiz-next';
-  }
-  if (step === 4) nRenderActionChecklist();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function nRenderActionChecklist() {
-  const el = $('nActionCheckList');
-  if (!el) return;
-  const regNum = ($('regNumber')?.value||'').trim();
-  const regText = ns.hasReg === 'yes' ? `あり${regNum ? '（'+regNum+'）' : ''}` : ns.hasReg === 'no' ? 'なし' : '不明';
-  const conds = getSelectedConditions();
-  const dt = $('collectedAt')?.value;
-  const dtText = dt ? new Date(dt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未入力';
-  const items = [
-    { icon:'✅', cls:'ok',   label:'防犯登録',  val:regText },
-    { icon: conds.length ? '✅' : '⚠️', cls: conds.length ? 'ok' : 'warn', label:'車体状況', val: conds.length ? conds.join('、') : '未選択（任意）' },
-    { icon: ns.lat ? '✅' : '⚠️', cls: ns.lat ? 'ok' : 'warn', label:'GPS位置', val: ns.lat ? `取得済み（±${ns.locationAccuracy}m）` : '未取得（任意）' },
-    { icon: dt ? '✅' : '❌', cls: dt ? 'ok' : 'err', label:'回収日時', val: dtText },
-  ];
-  const hasErr = items.some(i => i.cls === 'err');
-  const hasWarn = items.some(i => i.cls === 'warn');
-  el.innerHTML = `<div class="n-action-check-list-inner">
-    <div class="n-action-check-title ${hasErr?'err':hasWarn?'warn':'ok'}">${hasErr?'❌ 入力漏れがあります':hasWarn?'⚠️ 未入力の項目があります':'✅ 前のステップの確認'}</div>
-    ${items.map(i=>`<div class="n-action-check-item ${i.cls}"><span>${i.icon}</span><span class="n-check-label">${i.label}</span><span class="n-check-val">${escHtml(i.val)}</span></div>`).join('')}
-    ${hasErr||hasWarn?`<p class="n-action-check-hint">⚠️ の項目は「もどる」で修正できます</p>`:''}
-  </div>`;
-}
-
-function nWizValidate() {
-  if (nWizStep === 0) {
-    if (ns.hasReg === 'yes') {
-      const v1 = ($('regNumber')?.value||'').trim();
-      const v2 = ($('regNumberConfirm')?.value||'').trim();
-      if (v1 && !v2) { toast('⚠️ 登録番号の確認（2回目）を入力してください'); return false; }
-      if (v1 && v2 && v1 !== v2) { toast('⚠️ 登録番号の1回目と2回目が一致しません'); return false; }
-    }
-  }
-  if (nWizStep === 3) {
-    if (!$('collectedAt').value) { toast('⚠️ 回収日時を入力してください'); return false; }
-  }
-  if (nWizStep === 4) {
-    if (!ns.actionType) { toast('⚠️ 対応区分を選択してください'); return false; }
-  }
-  if (nWizStep === 5) {
-    if (ns.actionType !== 'observation' && !$('storageLocation').value) { toast('⚠️ 保管場所を選択してください'); return false; }
-  }
-  return true;
-}
-
-function nWizRenderSummary() {
-  const el = $('nWizSummary'); if (!el) return;
-  const regText = ns.hasReg === 'yes'
-    ? `あり${($('regNumber')?.value||'').trim() ? '（'+$('regNumber').value.trim()+'）' : ''}`
-    : ns.hasReg === 'no' ? 'なし' : '不明';
-  const conds = getSelectedConditions();
-  const loc = STORAGE_LOCATIONS.find(l => l.id === $('storageLocation').value);
-  const isObservation = ns.actionType === 'observation';
-  const items = [
-    { label:'対応区分', val:actionTypeLabel(ns.actionType)||'未選択', ok:!!ns.actionType },
-    { label:'防犯登録', val:regText, ok:true },
-    { label:'車体状況', val:conds.length ? conditionRichText(conds, ns.conditionDetails) : '（選択なし）', ok:true },
-    { label:'GPS', val:ns.lat ? `取得済み（±${ns.locationAccuracy}m）` : '未取得', ok:!!ns.lat, warn:!ns.lat },
-    { label:'回収日時', val:$('collectedAt')?.value ? new Date($('collectedAt').value).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未入力', ok:!!$('collectedAt')?.value, err:!$('collectedAt')?.value },
-    { label:'保管場所', val:isObservation ? '（経過観察のため不要）' : loc ? loc.name : '未選択', ok: isObservation || !!loc, err: !isObservation && !loc },
-  ];
-  el.innerHTML = `<div style="font-size:0.82rem;font-weight:700;color:var(--header);margin-bottom:8px;">入力内容の確認</div>` +
-    items.map(i => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);font-size:0.82rem;">
-      <span>${i.err?'❌':i.warn?'⚠️':'✅'}</span>
-      <span style="color:var(--text-muted);font-weight:600;min-width:70px;flex-shrink:0;">${i.label}</span>
-      <span style="word-break:break-all;">${escHtml(i.val)}</span>
-    </div>`).join('');
-}
-
-function initRegSection() {
-  document.querySelectorAll('#hasRegCtrl .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#hasRegCtrl .seg-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      ns.hasReg = btn.dataset.value;
-      $('regSection').style.display = ns.hasReg==='yes' ? 'block' : 'none';
-    });
-  });
-  // リアルタイム照合チェック
-  $('regNumber')?.addEventListener('input', () => {
-    // ユーザーが編集 → ocr_corrected に変更
-    if (ns.inputMethod === 'ocr_accepted') ns.inputMethod = 'ocr_corrected';
-    updateRegMatch();
-  });
-  $('regNumberConfirm')?.addEventListener('input', updateRegMatch);
-}
-
-function updateRegMatch() {
-  const v1 = ($('regNumber')?.value || '').trim();
-  const v2 = ($('regNumberConfirm')?.value || '').trim();
-  const el = $('regMatchStatus');
-  if (!el) return;
-  if (!v1 || !v2) { el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  if (v1 === v2) {
-    el.className = 'reg-match ok'; el.textContent = '✅ 一致しました';
-  } else {
-    el.className = 'reg-match error'; el.textContent = '❌ 一致しません。どちらかを修正してください。';
-  }
-}
-
-function initActionType() {
-  const ACTION_NOTE = {
-    immediate:   '',
-    observation: '📋 違反者シールを貼付して、その場に残します。保管場所の選択は不要です。',
-    other:       '',
-  };
-  document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      ns.actionType = btn.dataset.value;
-      const noteEl = $('actionTypeNote');
-      if (noteEl) {
-        const note = ACTION_NOTE[ns.actionType] || '';
-        noteEl.textContent = note;
-        noteEl.style.display = note ? 'block' : 'none';
-      }
-    });
-  });
-}
-
-function initPhotoCapture() {
-  $('shootBtn').addEventListener('click', ()=>$('photoInput').click());
-  $('retakeBtn').addEventListener('click', ()=>{
-    ns.photoDataUrl=null; ns.ocrPrediction=''; ns.inputMethod='manual';
-    $('photoPreview').style.display='none'; $('photoPlaceholder').style.display='flex';
-    $('retakeBtn').style.display='none'; $('shootBtn').style.display='block';
-    $('ocrStatus').style.display='none';
-    $('regNumber').value=''; $('regNumberConfirm').value='';
-    $('regMatchStatus').style.display='none';
-    const badge=$('regOcrBadge'); if(badge) badge.style.display='none';
-  });
-  $('photoInput').addEventListener('change', async e=>{
-    const file=e.target.files[0]; if(!file) return;
-    const dataUrl=await resizeImage(file); ns.photoDataUrl=dataUrl;
-    const canvas=$('photoPreview'), img=new Image();
-    img.onload=()=>{
-      canvas.width=img.width; canvas.height=img.height;
-      canvas.getContext('2d').drawImage(img,0,0);
-      canvas.style.display='block'; $('photoPlaceholder').style.display='none';
-      $('retakeBtn').style.display='flex'; $('shootBtn').style.display='none';
-    }; img.src=dataUrl;
-    // 再撮影時は入力をリセット（番号は手入力）
-    $('regNumber').value=''; $('regNumberConfirm').value='';
-    if($('regMatchStatus')) $('regMatchStatus').style.display='none';
-    ns.ocrPrediction=''; ns.inputMethod='manual';
-    e.target.value='';
-  });
-}
-
-function initGeolocation() {
-  const btn = $('getLocationBtn');
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    try {
-      const pos = await requestGPS((type, msg) => showLocStatus(type, msg));
-      ns.lat = pos.coords.latitude;
-      ns.lng = pos.coords.longitude;
-      ns.locationAccuracy = Math.round(pos.coords.accuracy);
-      const acc = accuracyInfo(ns.locationAccuracy);
-      showLocStatus('ok', `✅ 取得完了 ${acc.icon} ${acc.label}（${acc.text}）\n${ns.lat.toFixed(6)}, ${ns.lng.toFixed(6)}`);
-      const a = $('mapsLink');
-      a.href = `https://maps.google.com/?q=${ns.lat},${ns.lng}`;
-      a.style.display = 'inline';
-      toast('位置情報を取得しました');
-    } catch (err) {
-      if (err.code === 1) {
-        showGpsDenied($('locationStatus'), false);
-      } else {
-        showLocStatus('error', gpsErrorMsg(err));
-      }
-    } finally {
-      btn.disabled = false;
-    }
-  });
-}
-function showLocStatus(type, msg) {
-  const el = $('locationStatus');
-  el.className = `location-status ${type}`;
-  el.style.whiteSpace = 'pre-line';
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-
-function buildNormalConditionGrid() {
-  const grid=$('conditionGrid'); if(!grid) return;
-  grid.innerHTML='';
-  CONDITION_OPTIONS.forEach(opt=>{
-    const wrap=document.createElement('div'); wrap.className='cond-wrap';
-    const label=document.createElement('label'); label.className='cond-label';
-    const cb=document.createElement('input'); cb.type='checkbox'; cb.value=opt;
-    const detailEl=createConditionDetailEl(opt,ns.conditionDetails,false);
-    cb.addEventListener('change',()=>{
-      label.classList.toggle('checked',cb.checked);
-      detailEl.classList.toggle('show',cb.checked);
-      if(!cb.checked) delete ns.conditionDetails[opt];
-    });
-    label.appendChild(cb); label.appendChild(document.createTextNode(opt));
-    wrap.appendChild(label); wrap.appendChild(detailEl); grid.appendChild(wrap);
-  });
-}
-
-function buildStorageSelects() {
-  const sel=$('storageLocation');
-  if(sel) {
-    STORAGE_LOCATIONS.forEach(loc=>{
-      const opt=document.createElement('option'); opt.value=loc.id; opt.textContent=`${loc.name}（${loc.id}）`; sel.appendChild(opt);
-    });
-    sel.addEventListener('change',()=>{
-      const loc=STORAGE_LOCATIONS.find(l=>l.id===sel.value); $('storageAddress').textContent=loc?loc.address:'';
-    });
-  }
-  const fs=$('filterStorage');
-  if(fs) STORAGE_LOCATIONS.forEach(loc=>{const opt=document.createElement('option');opt.value=loc.id;opt.textContent=loc.name;fs.appendChild(opt);});
-}
-
-function getSelectedConditions(){return Array.from(document.querySelectorAll('#conditionGrid input:checked')).map(cb=>cb.value);}
-function setDefaultDatetime(){const now=new Date(),local=new Date(now.getTime()-now.getTimezoneOffset()*60000),el=$('collectedAt');if(el)el.value=local.toISOString().slice(0,16);}
+function saveNoticeSettings(s) { localStorage.setItem('noticeSettings', JSON.stringify(s)); }
 
 async function countTodayRecords() {
   const all = await dbGetAll();
@@ -834,92 +491,558 @@ async function countTodayRecords() {
   return all.filter(r => new Date(r.collectedAt).toDateString() === today).length;
 }
 
-function showNormalComplete(count, regNumber, storageName) {
-  const regLine = regNumber
-    ? `<div class="nc-reg">🔖 登録番号：${escHtml(regNumber)}</div>`
-    : `<div class="nc-reg">🔖 登録番号：（なし・不明）</div>`;
-  $('nCompleteCard').innerHTML = `
-    <div class="nc-badge">✅ 登録完了</div>
-    <div class="nc-count">本日 <strong>${count}</strong> 台目を記録しました</div>
-    ${regLine}
-    <div class="nc-storage">🏢 保管先：${escHtml(storageName)}</div>
-    <button class="nc-next-btn" id="ncNextBtn">➕ 次の自転車を登録する</button>
-    <button class="nc-list-btn" id="ncListBtn">📋 一覧を確認する</button>`;
-  $('nCompleteCard').style.display = 'block';
-  $('nFormCards').style.display = 'none';
-  $('nWizProgress').style.display = 'none';
-  $('nWizNav').style.display = 'none';
-  window.scrollTo({top:0,behavior:'smooth'});
-  $('ncNextBtn').addEventListener('click', ()=>{
-    $('nCompleteCard').style.display='none';
-    resetNormalForm();
-  });
-  $('ncListBtn').addEventListener('click', ()=>{
-    $('nCompleteCard').style.display='none';
-    $('nFormCards').style.display='block';
-    document.querySelector('.n-tab[data-n-tab="list"]').click();
-  });
-}
-
-function initSave() {
-  $('saveBtn').addEventListener('click', async ()=>{
-    const collectedAt=$('collectedAt').value, storageId=$('storageLocation').value;
-    if(!collectedAt){toast('⚠️ 回収日時を入力してください');return;}
-    if(ns.actionType!=='observation'&&!storageId){toast('⚠️ 保管場所を選択してください');return;}
-    if(ns.hasReg==='yes'){
-      const v1=($('regNumber')?.value||'').trim();
-      const v2=($('regNumberConfirm')?.value||'').trim();
-      if(v1 && v2 && v1!==v2){toast('⚠️ 登録番号の1回目と2回目が一致しません');return;}
-      if(v1 && !v2){toast('⚠️ 登録番号の確認（2回目）を入力してください');return;}
-    }
-    const regNum = ns.hasReg==='yes' ? ($('regNumber')?.value.trim()||'') : '';
-    const loc = STORAGE_LOCATIONS.find(l=>l.id===storageId);
-    await saveRecord({
-      actionType:ns.actionType||'immediate',
-      hasRegistration:ns.hasReg,
-      registrationNumber:regNum,
-      photoDataUrl:ns.hasReg==='yes'?(ns.photoDataUrl||null):null,
-      ocrPrediction:ns.ocrPrediction,
-      inputMethod:ns.inputMethod,
-      conditions:getSelectedConditions(), conditionDetails:ns.conditionDetails, conditionNote:$('conditionNote').value.trim(),
-      lat:ns.lat, lng:ns.lng, locationAccuracy:ns.locationAccuracy,
-      locationNote:$('locationNote').value.trim(),
-      collectedAt:new Date(collectedAt).toISOString(), storageLocationId:storageId, notes:$('notes').value.trim(),
-    });
-    const count = await countTodayRecords();
-    showNormalComplete(count, regNum, loc?.name||'');
-  });
-}
-
 async function saveRecord(data) {
-  const loc=STORAGE_LOCATIONS.find(l=>l.id===data.storageLocationId)||{};
-  const record={id:uuid(),createdAt:new Date().toISOString(),synced:false,
-    storageLocationName:loc.name||'',storageLocationAddress:loc.address||'',notes:'',...data};
+  const loc = STORAGE_LOCATIONS.find(l => l.id === data.storageLocationId) || {};
+  const record = { id:uuid(), createdAt:new Date().toISOString(), synced:false,
+    storageLocationName:loc.name||'', storageLocationAddress:loc.address||'', notes:'', ...data };
   await dbPut(record); return record;
 }
 
-function resetNormalForm(){
-  ns.hasReg='yes';ns.photoDataUrl=null;ns.lat=null;ns.lng=null;ns.locationAccuracy=null;
-  ns.ocrPrediction='';ns.inputMethod='manual';ns.actionType='immediate';
-  document.querySelectorAll('#actionTypeCtrl .seg-btn').forEach((b,i)=>b.classList.toggle('active',b.dataset.value==='immediate'));
-  const noteEl=$('actionTypeNote');if(noteEl){noteEl.textContent='';noteEl.style.display='none';}
-  document.querySelectorAll('#hasRegCtrl .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
-  $('regSection').style.display='block';
-  $('photoPreview').style.display='none';$('photoPlaceholder').style.display='flex';
-  $('retakeBtn').style.display='none';$('shootBtn').style.display='block';
-  $('ocrStatus').style.display='none';
-  $('regNumber').value='';
-  if($('regNumberConfirm'))$('regNumberConfirm').value='';
-  if($('regMatchStatus'))$('regMatchStatus').style.display='none';
-  const badge=$('regOcrBadge');if(badge)badge.style.display='none';
-  ns.conditionDetails={};
-  buildNormalConditionGrid();
-  $('conditionNote').value='';$('locationStatus').style.display='none';
-  $('mapsLink').style.display='none';$('locationNote').value='';
-  $('storageLocation').value='';$('storageAddress').textContent='';$('notes').value='';
-  setDefaultDatetime();
-  nRenderStart();
+function buildStorageSelects() {
+  const fs = $('filterStorage');
+  if (fs) STORAGE_LOCATIONS.forEach(loc => {
+    const opt = document.createElement('option'); opt.value = loc.id; opt.textContent = loc.name; fs.appendChild(opt);
+  });
 }
+
+function initNormalApp() {
+  buildStorageSelects();
+  initNormalNav();
+  initPhase1Tab();
+  initList();
+  initExport();
+  $('nTopPageBtn')?.addEventListener('click', () => { window.location.href = './index.html'; });
+  p1OnTabOpen();
+
+}
+
+function initNormalNav() {
+  document.querySelectorAll('.n-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.n-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.n-page').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const page = btn.dataset.nTab;
+      const tabEl = $('n' + page.charAt(0).toUpperCase() + page.slice(1) + 'Tab');
+      if (tabEl) tabEl.classList.add('active');
+      if (page === 'list') renderList();
+      if (page === 'export') renderExportSummary();
+      if (page === 'phase1') p1OnTabOpen();
+      if (page === 'phase2') renderPhase2Tab();
+      if (page === 'settings') renderNormalSettings();
+    });
+  });
+}
+
+// ── フェーズ1（現場登録）──────────────────────────
+const np1 = {
+  seqNum: 0, photos: [],
+  lat: null, lng: null, locationAccuracy: null,
+  gpsStarted: false, liveClock: null,
+};
+
+function initPhase1Tab() {
+  $('p1AddPhotoBtn')?.addEventListener('click', () => $('p1PhotoInput').click());
+  $('p1PhotoInput')?.addEventListener('change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (np1.photos.length >= 5) { toast('写真は最大5枚までです'); return; }
+    const dataUrl = await resizeImage(file);
+    np1.photos.push(dataUrl);
+    p1RenderPhotoGrid();
+    e.target.value = '';
+  });
+  $('p1SaveBtn')?.addEventListener('click', p1Save);
+  p1StartClock();
+}
+
+async function p1OnTabOpen() {
+  const all = await dbGetAll();
+  const today = new Date().toDateString();
+  np1.seqNum = all.filter(r => new Date(r.createdAt).toDateString() === today).length + 1;
+  const el = $('p1SeqIdDisplay');
+  if (el) el.textContent = fmtSeqId(np1.seqNum);
+  updatePhase2Badge();
+  if (!np1.gpsStarted) { np1.gpsStarted = true; p1AutoGPS(); }
+}
+
+async function p1AutoGPS() {
+  const el = $('p1GpsStatus'); if (!el) return;
+  el.className = 'p1-gps-status loading';
+  el.textContent = '⏳ GPS取得中…';
+  try {
+    const pos = await requestGPS();
+    np1.lat = pos.coords.latitude;
+    np1.lng = pos.coords.longitude;
+    np1.locationAccuracy = Math.round(pos.coords.accuracy);
+    const acc = accuracyInfo(np1.locationAccuracy);
+    el.className = 'p1-gps-status ok';
+    el.innerHTML = `✅ ${acc.icon} ±${np1.locationAccuracy}m  <a href="https://maps.google.com/?q=${np1.lat},${np1.lng}" target="_blank" rel="noopener" class="maps-link">地図</a>`;
+  } catch (err) {
+    el.className = 'p1-gps-status error';
+    if (err.code === 1) {
+      el.innerHTML = `❌ 位置情報が許可されていません  <button class="p1-gps-retry" onclick="p1RetryGPS()">再試行</button>`;
+    } else {
+      el.innerHTML = `⚠️ GPS取得失敗  <button class="p1-gps-retry" onclick="p1RetryGPS()">再試行</button>`;
+    }
+  }
+}
+
+window.p1RetryGPS = function() {
+  np1.gpsStarted = false; np1.lat = null; np1.lng = null; np1.locationAccuracy = null;
+  p1OnTabOpen();
+};
+
+function p1StartClock() {
+  if (np1.liveClock) clearInterval(np1.liveClock);
+  np1.liveClock = setInterval(() => {
+    const el = $('p1TimeLive');
+    if (!el) return;
+    el.textContent = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }, 1000);
+}
+
+function p1RenderPhotoGrid() {
+  const grid = $('p1PhotoGrid'); if (!grid) return;
+  grid.innerHTML = np1.photos.map((url, i) => `
+    <div class="p1-photo-thumb">
+      <img src="${url}" class="p1-thumb-img" alt="写真${i+1}" />
+      <button class="p1-thumb-del" onclick="p1DeletePhoto(${i})">✕</button>
+    </div>`).join('');
+  const countEl = $('p1PhotoCount');
+  if (countEl) countEl.textContent = `${np1.photos.length} / 5枚`;
+  const addBtn = $('p1AddPhotoBtn');
+  if (addBtn) {
+    addBtn.disabled = np1.photos.length >= 5;
+    addBtn.textContent = np1.photos.length >= 5
+      ? '📷 写真 (5枚・上限)'
+      : `📷 写真を追加（あと${5 - np1.photos.length}枚）`;
+  }
+}
+
+window.p1DeletePhoto = function(idx) { np1.photos.splice(idx, 1); p1RenderPhotoGrid(); };
+
+async function p1Save() {
+  const saveBtn = $('p1SaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    const all = await dbGetAll();
+    const today = new Date().toDateString();
+    const todayCount = all.filter(r => new Date(r.createdAt).toDateString() === today).length;
+    const seqNum = todayCount + 1;
+    const record = await saveRecord({
+      sequenceId: fmtSeqId(seqNum),
+      phase: 1,
+      photos: [...np1.photos],
+      lat: np1.lat, lng: np1.lng, locationAccuracy: np1.locationAccuracy,
+      collectedAt: new Date().toISOString(),
+      hasRegistration: null, registrationNumber: '', photoDataUrl: null,
+      conditions: [], conditionDetails: {}, conditionNote: '',
+      actionType: null, storageLocationId: '', locationNote: '', notes: '',
+    });
+    p1ShowComplete(seqNum, todayCount + 1, record);
+    updatePhase2Badge();
+  } catch (err) {
+    toast('❌ 保存失敗: ' + err.message);
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+function p1ShowComplete(seqNum, count, record) {
+  const card = $('p1CompleteCard'), main = $('p1MainCard'), saveBtn = $('p1SaveBtn');
+  if (!card) return;
+  card.innerHTML = `
+    <div class="nc-badge">✅ 保存しました</div>
+    <div class="nc-count">本日 <strong>${count}</strong> 台目</div>
+    <div class="nc-reg">🔖 ID：${fmtSeqId(seqNum)}</div>
+    <div class="nc-storage">${np1.lat ? `📍 GPS済み（±${np1.locationAccuracy}m）` : '📍 GPS未取得'}</div>
+    <div class="nc-storage">📷 写真 ${np1.photos.length}枚</div>
+    <button class="nc-next-btn" id="p1NextBtn">▶ 次の自転車へ</button>
+    <button class="p1-notice-btn" id="p1NoticeBtn">🖨 警告票を発行する</button>
+    <button class="nc-list-btn" id="p1GoDetailBtn">📝 詳細入力へ</button>`;
+  card.style.display = 'block';
+  if (main) main.style.display = 'none';
+  if (saveBtn) saveBtn.style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('p1NextBtn').addEventListener('click', p1Reset);
+  $('p1NoticeBtn').addEventListener('click', () => showWarningNotice(record));
+  $('p1GoDetailBtn').addEventListener('click', () => {
+    p1Reset();
+    document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
+  });
+}
+
+function p1Reset() {
+  np1.photos = []; np1.lat = null; np1.lng = null; np1.locationAccuracy = null;
+  np1.gpsStarted = false; np1.seqNum = 0;
+  const card = $('p1CompleteCard'), main = $('p1MainCard'), saveBtn = $('p1SaveBtn');
+  if (card) card.style.display = 'none';
+  if (main) main.style.display = 'block';
+  if (saveBtn) { saveBtn.style.display = 'block'; saveBtn.disabled = false; }
+  p1RenderPhotoGrid();
+  p1OnTabOpen();
+}
+
+// ── 警告票（放置自転車所有者向け通知）─────────────
+const NOTICE_QR_URL = 'https://www.tenriyorozu.jp/';
+
+async function showWarningNotice(record) {
+  const ns = getNoticeSettings();
+  const seqId = record.sequenceId || '#---';
+  const foundAt = new Date(record.collectedAt);
+  const removalDate = new Date(foundAt);
+  removalDate.setDate(removalDate.getDate() + (ns.daysUntilRemoval || 7));
+  const fmtDate = d => d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  const fmtTime = d => d.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+  const gpsLine = record.lat
+    ? `北緯${record.lat.toFixed(5)}、東経${record.lng.toFixed(5)}（精度±${record.locationAccuracy}m）`
+    : '（GPS未記録）';
+  const ordinance = ns.ordinanceName || '放置自転車防止条例';
+  const fee = ns.storageFee || '（別途通知）';
+  const phone = ns.contactPhone || '（担当窓口へお問い合わせください）';
+
+  // QRコード生成（データURL）
+  let qrDataUrl = '';
+  try {
+    if (typeof QRCode !== 'undefined') {
+      qrDataUrl = await QRCode.toDataURL(NOTICE_QR_URL, { width: 160, margin: 2, color: { dark: '#000', light: '#fff' } });
+    }
+  } catch (e) { /* QRコード生成失敗時はスキップ */ }
+
+  const qrSection = qrDataUrl ? `
+    <div class="notice-qr-section">
+      <img src="${qrDataUrl}" class="notice-qr-img" alt="QRコード" />
+      <div class="notice-qr-label">詳細・お問い合わせはこちら</div>
+      <div class="notice-qr-url">${escHtml(NOTICE_QR_URL)}</div>
+    </div>` : '';
+
+  const noticeHtml = `
+    <div class="notice-slip">
+      <div class="notice-title">放置自転車 撤去警告書</div>
+      <div class="notice-main">
+        <div class="notice-info">
+          <table class="notice-table">
+            <tr><th>管理番号</th><td><strong>${escHtml(seqId)}</strong></td></tr>
+            <tr><th>発見日時</th><td>${fmtDate(foundAt)} ${fmtTime(foundAt)}</td></tr>
+            <tr><th>撤去予定日</th><td><strong class="notice-removal-date">${fmtDate(removalDate)}</strong><br><small>（発見から${ns.daysUntilRemoval || 7}日後）</small></td></tr>
+            <tr><th>発見位置</th><td class="notice-gps">${gpsLine}</td></tr>
+          </table>
+          <div class="notice-body">
+            <p>この自転車は<strong>${escHtml(ordinance)}</strong>に基づき、放置自転車として確認・登録されました。</p>
+            <p>上記の撤去予定日までにお引き取りにならない場合、撤去・保管いたします。</p>
+            <p><strong>撤去後の返還には保管料 ${escHtml(fee)} が必要です。</strong></p>
+            <p>お問い合わせ先：${escHtml(phone)}</p>
+          </div>
+        </div>
+        ${qrSection}
+      </div>
+      <div class="notice-footer">この警告書は撤去員が現場で発行したものです。</div>
+    </div>`;
+
+  const printArea = $('printArea');
+  if (printArea) printArea.innerHTML = noticeHtml;
+
+  $('modalContent').innerHTML = `
+    <div class="detail-title">🖨 警告票プレビュー</div>
+    <div class="notice-preview">${noticeHtml}</div>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-primary" onclick="doPrint()">🖨 印刷 / 保存</button>
+      <button class="btn-secondary" onclick="document.getElementById('modal').style.display='none'">閉じる</button>
+    </div>`;
+  $('modal').style.display = 'flex';
+}
+
+window.doPrint = function() { window.print(); };
+
+// ── 通常版設定ページ ─────────────────────────────
+function renderNormalSettings() {
+  const container = $('nSettingsContent');
+  if (!container || container.querySelector('.notice-settings-card')) return;
+  const ns = getNoticeSettings();
+  const card = document.createElement('div');
+  card.className = 'card notice-settings-card';
+  card.innerHTML = `
+    <h2>🖨 警告票の設定</h2>
+    <div class="form-stack">
+      <label>撤去予定日数（発見から何日後）</label>
+      <input type="number" id="nssDays" min="1" max="30" value="${ns.daysUntilRemoval || 7}" />
+      <label>問い合わせ先電話番号</label>
+      <input type="text" id="nssPhone" value="${escHtml(ns.contactPhone || '')}" placeholder="例: 03-XXXX-XXXX" />
+      <label>保管料</label>
+      <input type="text" id="nssFee" value="${escHtml(ns.storageFee || '')}" placeholder="例: 2,500円" />
+      <label>条例名称</label>
+      <input type="text" id="nssOrdinance" value="${escHtml(ns.ordinanceName || '')}" placeholder="例: ○○市放置自転車防止条例" />
+      <button class="btn-primary" style="margin-top:8px;" id="nssSaveBtn">✅ 保存</button>
+    </div>`;
+  container.appendChild(card);
+  $('nssSaveBtn').addEventListener('click', () => {
+    saveNoticeSettings({
+      daysUntilRemoval: parseInt($('nssDays').value) || 7,
+      contactPhone: $('nssPhone').value.trim(),
+      storageFee: $('nssFee').value.trim(),
+      ordinanceName: $('nssOrdinance').value.trim(),
+    });
+    toast('✅ 設定を保存しました');
+  });
+}
+
+// ── フェーズ2（詳細入力）──────────────────────────
+async function renderPhase2Tab() {
+  const all = await dbGetAll();
+  const today = new Date().toDateString();
+  const pending = all.filter(r => r.phase === 1)
+    .sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt));
+  const todayDone = all
+    .filter(r => r.phase === 2 && new Date(r.collectedAt).toDateString() === today)
+    .sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt));
+  const list = $('p2PendingList'); if (!list) return;
+
+  if (!pending.length && !todayDone.length) {
+    list.innerHTML = '<div class="card"><p class="muted center">本日の記録がありません。<br>まず「現場登録」タブで登録してください。</p></div>';
+    return;
+  }
+  let html = '';
+  if (pending.length) {
+    html += `<div class="p2-section-header">📋 詳細未入力 (${pending.length}件)</div>`;
+    html += pending.map(r => p2CardHtml(r, true)).join('');
+  }
+  if (todayDone.length) {
+    html += `<div class="p2-section-header">✅ 本日入力済み (${todayDone.length}件)</div>`;
+    html += todayDone.map(r => p2CardHtml(r, false)).join('');
+  }
+  list.innerHTML = html;
+}
+
+function p2CardHtml(r, isPending) {
+  const time = new Date(r.collectedAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+  const gpsText = r.lat ? `📍 ±${r.locationAccuracy}m` : '📍 未取得';
+  const photoCount = (r.photos || []).length;
+  const seqId = escHtml(r.sequenceId || '#---');
+  if (isPending) {
+    return `<div class="p2-card pending" onclick="openDetailForm('${r.id}')">
+      <div class="p2-card-header">
+        <span class="p2-seq-id">${seqId}</span>
+        <span class="p2-time">${time}</span>
+        <span class="p2-status pending">詳細未入力</span>
+      </div>
+      <div class="p2-card-meta">${gpsText} &nbsp; 📷 ${photoCount}枚</div>
+      <div class="p2-card-action">📝 タップして詳細を入力 →</div>
+    </div>`;
+  }
+  const regText = r.hasRegistration === 'yes'
+    ? `🔖 ${r.registrationNumber || '番号なし'}`
+    : r.hasRegistration === 'no' ? '🔖 登録なし' : '🔖 登録不明';
+  return `<div class="p2-card done" onclick="openDetailForm('${r.id}')">
+    <div class="p2-card-header">
+      <span class="p2-seq-id">${seqId}</span>
+      <span class="p2-time">${time}</span>
+      <span class="p2-status done">✅ 入力済み</span>
+    </div>
+    <div class="p2-card-meta">${regText} &nbsp; 🏢 ${escHtml(r.storageLocationName || '—')}</div>
+  </div>`;
+}
+
+async function updatePhase2Badge() {
+  const all = await dbGetAll();
+  const pending = all.filter(r => r.phase === 1).length;
+  const badge = $('nPhase2Badge'); if (!badge) return;
+  badge.textContent = pending > 0 ? String(pending) : '';
+  badge.style.display = pending > 0 ? 'inline-block' : 'none';
+}
+
+window.openDetailForm = async function(id) {
+  const all = await dbGetAll();
+  const r = all.find(x => x.id === id); if (!r) return;
+  const time = new Date(r.collectedAt).toLocaleString('ja-JP',
+    { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const gpsText = r.lat
+    ? `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)} (±${r.locationAccuracy}m)`
+    : '未取得';
+  const mapsUrl = r.lat ? `https://maps.google.com/?q=${r.lat},${r.lng}` : null;
+  const photosHtml = (r.photos || [])
+    .map(url => `<img src="${url}" class="p2-site-photo" alt="現場写真" />`)
+    .join('');
+  const storageHtml = STORAGE_LOCATIONS.map(loc =>
+    `<option value="${loc.id}"${r.storageLocationId === loc.id ? ' selected' : ''}>${loc.name}（${loc.id}）</option>`
+  ).join('');
+  const actionHtml = ACTION_TYPES.map(a =>
+    `<button class="seg-btn${r.actionType === a.value ? ' active' : ''}" data-value="${a.value}">${a.icon} ${a.label}</button>`
+  ).join('');
+  const curHasReg = r.hasRegistration || 'unknown';
+
+  $('modalContent').innerHTML = `
+    <div class="detail-title">📝 詳細入力：${escHtml(r.sequenceId || r.id.slice(0, 8))}</div>
+    <div class="p2-modal-info">
+      <div class="detail-row"><span class="detail-label">記録日時</span><span class="detail-val">${time}</span></div>
+      <div class="detail-row"><span class="detail-label">GPS</span><span class="detail-val">${gpsText}${mapsUrl ? ` <a href="${mapsUrl}" target="_blank" rel="noopener" class="maps-link">地図</a>` : ''}</span></div>
+      <div class="detail-row"><span class="detail-label">現場写真</span><span class="detail-val">${(r.photos || []).length}枚</span></div>
+    </div>
+    ${photosHtml ? `<div class="p2-site-photos">${photosHtml}</div>` : ''}
+    <div class="form-stack" style="margin-top:16px;">
+      <div class="n-wiz-step-title">① 防犯登録シール</div>
+      <div class="seg-ctrl" id="p2HasRegCtrl">
+        <button class="seg-btn${curHasReg === 'yes' ? ' active' : ''}" data-value="yes">あり</button>
+        <button class="seg-btn${curHasReg === 'no' ? ' active' : ''}" data-value="no">なし</button>
+        <button class="seg-btn${curHasReg === 'unknown' ? ' active' : ''}" data-value="unknown">不明</button>
+      </div>
+      <div id="p2RegSection" style="${curHasReg !== 'yes' ? 'display:none;' : ''}">
+        ${r.photoDataUrl ? `<img src="${r.photoDataUrl}" class="detail-photo" id="p2StickerPreview" />` : '<div id="p2StickerPreview"></div>'}
+        <div class="photo-btns" style="margin-top:8px;">
+          <button class="btn-camera" id="p2ShootBtn">📷 シール撮影</button>
+        </div>
+        <input type="file" id="p2PhotoInput" accept="image/*" capture="environment" style="display:none;" />
+        <label style="margin-top:8px;">防犯登録番号（1回目）</label>
+        <input id="p2RegNum" type="text" inputmode="text" value="${escHtml(r.registrationNumber || '')}" placeholder="例: 東京 12345678" autocomplete="off" />
+        <label>防犯登録番号（確認）</label>
+        <input id="p2RegNumConfirm" type="text" inputmode="text" value="${escHtml(r.registrationNumber || '')}" placeholder="同じ番号をもう一度" autocomplete="off" />
+        <div id="p2RegMatchStatus" class="reg-match" style="display:none;"></div>
+      </div>
+      <div class="n-wiz-step-title" style="margin-top:16px;">② 自転車の状態</div>
+      <div class="condition-grid" id="p2CondGrid"></div>
+      <textarea id="p2CondNote" rows="2" placeholder="備考（任意）">${escHtml(r.conditionNote || '')}</textarea>
+      <div class="n-wiz-step-title" style="margin-top:16px;">③ 場所の目印</div>
+      <input id="p2LocationNote" type="text" value="${escHtml(r.locationNote || '')}" placeholder="例: ○○駅東口 駐輪禁止エリア" />
+      <div class="n-wiz-step-title" style="margin-top:16px;">④ 対応区分</div>
+      <div class="seg-ctrl" id="p2ActionCtrl">${actionHtml}</div>
+      <div id="p2ActionNote" class="field-hint" style="display:${r.actionType === 'observation' ? 'block' : 'none'};color:#1a6b3a;font-weight:600;">📋 違反者シールを貼付して、その場に残します。</div>
+      <div id="p2StorageSection" style="${r.actionType === 'observation' ? 'display:none;' : ''}">
+        <div class="n-wiz-step-title" style="margin-top:16px;">⑤ 保管場所</div>
+        <select id="p2StorageLoc"><option value="">選択してください</option>${storageHtml}</select>
+        <p id="p2StorageAddr" class="field-hint storage-addr"></p>
+      </div>
+      <div class="n-wiz-step-title" style="margin-top:16px;">⑥ 備考</div>
+      <textarea id="p2Notes" rows="2" placeholder="特記事項（任意）">${escHtml(r.notes || '')}</textarea>
+    </div>
+    <button class="btn-primary" style="width:100%;margin-top:20px;" id="p2SaveDetailBtn">✅ 詳細を保存する</button>
+    <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="showWarningNotice(window._p2Record)">🖨 警告票を表示</button>
+    <button class="btn-danger-outline" style="width:100%;margin-top:8px;" onclick="deleteRecord('${r.id}')">🗑 この記録を削除</button>`;
+
+  window._p2Record = r;
+  $('modal').style.display = 'flex';
+
+  const p2s = {
+    hasReg: curHasReg,
+    photoDataUrl: r.photoDataUrl || null,
+    actionType: r.actionType || 'immediate',
+    conditionDetails: r.conditionDetails ? JSON.parse(JSON.stringify(r.conditionDetails)) : {},
+  };
+
+  const condGrid = $('p2CondGrid');
+  if (condGrid) {
+    CONDITION_OPTIONS.forEach(opt => {
+      const wrap = document.createElement('div'); wrap.className = 'cond-wrap';
+      const label = document.createElement('label'); label.className = 'cond-label';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = opt;
+      if ((r.conditions || []).includes(opt)) { cb.checked = true; label.classList.add('checked'); }
+      const detailEl = createConditionDetailEl(opt, p2s.conditionDetails, false);
+      if (cb.checked) detailEl.classList.add('show');
+      cb.addEventListener('change', () => {
+        label.classList.toggle('checked', cb.checked);
+        detailEl.classList.toggle('show', cb.checked);
+        if (!cb.checked) delete p2s.conditionDetails[opt];
+      });
+      label.appendChild(cb); label.appendChild(document.createTextNode(opt));
+      wrap.appendChild(label); wrap.appendChild(detailEl); condGrid.appendChild(wrap);
+    });
+  }
+
+  document.querySelectorAll('#p2HasRegCtrl .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#p2HasRegCtrl .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      p2s.hasReg = btn.dataset.value;
+      $('p2RegSection').style.display = p2s.hasReg === 'yes' ? 'block' : 'none';
+    });
+  });
+
+  const updateP2RegMatch = () => {
+    const v1 = ($('p2RegNum')?.value || '').trim();
+    const v2 = ($('p2RegNumConfirm')?.value || '').trim();
+    const el = $('p2RegMatchStatus'); if (!el) return;
+    if (!v1 || !v2) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    if (v1 === v2) { el.className = 'reg-match ok'; el.textContent = '✅ 一致'; }
+    else { el.className = 'reg-match error'; el.textContent = '❌ 一致しません'; }
+  };
+  $('p2RegNum')?.addEventListener('input', updateP2RegMatch);
+  $('p2RegNumConfirm')?.addEventListener('input', updateP2RegMatch);
+
+  $('p2ShootBtn')?.addEventListener('click', () => $('p2PhotoInput').click());
+  $('p2PhotoInput')?.addEventListener('change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    p2s.photoDataUrl = await resizeImage(file);
+    const preview = $('p2StickerPreview');
+    if (preview && preview.tagName === 'IMG') {
+      preview.src = p2s.photoDataUrl;
+    } else if (preview) {
+      const img = document.createElement('img');
+      img.id = 'p2StickerPreview'; img.className = 'detail-photo'; img.src = p2s.photoDataUrl;
+      preview.replaceWith(img);
+    }
+    e.target.value = '';
+  });
+
+  document.querySelectorAll('#p2ActionCtrl .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#p2ActionCtrl .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      p2s.actionType = btn.dataset.value;
+      $('p2StorageSection').style.display = p2s.actionType === 'observation' ? 'none' : '';
+      const noteEl = $('p2ActionNote');
+      if (noteEl) {
+        noteEl.textContent = p2s.actionType === 'observation'
+          ? '📋 違反者シールを貼付して、その場に残します。' : '';
+        noteEl.style.display = p2s.actionType === 'observation' ? 'block' : 'none';
+      }
+    });
+  });
+
+  $('p2StorageLoc')?.addEventListener('change', () => {
+    const loc = STORAGE_LOCATIONS.find(l => l.id === $('p2StorageLoc').value);
+    if ($('p2StorageAddr')) $('p2StorageAddr').textContent = loc ? loc.address : '';
+  });
+  if (r.storageLocationId) {
+    const loc = STORAGE_LOCATIONS.find(l => l.id === r.storageLocationId);
+    if (loc && $('p2StorageAddr')) $('p2StorageAddr').textContent = loc.address;
+  }
+
+  $('p2SaveDetailBtn').addEventListener('click', async () => {
+    const storageId = $('p2StorageLoc')?.value || '';
+    if (p2s.actionType !== 'observation' && !storageId) {
+      toast('⚠️ 保管場所を選択してください'); return;
+    }
+    const v1 = ($('p2RegNum')?.value || '').trim();
+    const v2 = ($('p2RegNumConfirm')?.value || '').trim();
+    if (p2s.hasReg === 'yes' && v1 && v2 && v1 !== v2) { toast('⚠️ 登録番号が一致しません'); return; }
+    if (p2s.hasReg === 'yes' && v1 && !v2) { toast('⚠️ 登録番号の確認入力が必要です'); return; }
+    const loc = STORAGE_LOCATIONS.find(l => l.id === storageId) || {};
+    const updatedConds = Array.from(
+      document.querySelectorAll('#p2CondGrid input[type="checkbox"]:checked')
+    ).map(cb => cb.value);
+    const all2 = await dbGetAll();
+    const rec = all2.find(x => x.id === id);
+    if (!rec) { toast('記録が見つかりません'); return; }
+    Object.assign(rec, {
+      phase: 2,
+      hasRegistration: p2s.hasReg,
+      registrationNumber: p2s.hasReg === 'yes' ? v1 : '',
+      photoDataUrl: p2s.photoDataUrl,
+      conditions: updatedConds,
+      conditionDetails: p2s.conditionDetails,
+      conditionNote: $('p2CondNote')?.value.trim() || '',
+      locationNote: $('p2LocationNote')?.value.trim() || '',
+      actionType: p2s.actionType,
+      storageLocationId: storageId,
+      storageLocationName: loc.name || '',
+      storageLocationAddress: loc.address || '',
+      notes: $('p2Notes')?.value.trim() || '',
+    });
+    await dbPut(rec);
+    toast('✅ 詳細を保存しました');
+    closeModal();
+    renderPhase2Tab();
+    updatePhase2Badge();
+  });
+};
 
 function initList(){
   $('searchInput')?.addEventListener('input',renderList);
@@ -931,19 +1054,26 @@ async function renderList(){
   const filterLoc=$('filterStorage')?.value||'';
   const filtered=records.filter(r=>{
     if(filterLoc&&r.storageLocationId!==filterLoc)return false;
-    if(query){const h=[r.registrationNumber,r.locationNote,r.notes,r.storageLocationName].join(' ').toLowerCase();if(!h.includes(query))return false;}
+    if(query){
+      const h=[r.sequenceId,r.registrationNumber,r.locationNote,r.notes,r.storageLocationName].join(' ').toLowerCase();
+      if(!h.includes(query))return false;
+    }
     return true;
   }).sort((a,b)=>new Date(b.collectedAt)-new Date(a.collectedAt));
   const list=$('recordList'); if(!list) return;
   if(!filtered.length){list.innerHTML='<p class="muted center">該当するデータがありません。</p>';return;}
   list.innerHTML=filtered.map(r=>{
+    const isPending = r.phase === 1;
     const bc=r.hasRegistration==='yes'?'ok':r.hasRegistration==='no'?'no':'unk';
-    const bt=r.hasRegistration==='yes'?'登録あり':r.hasRegistration==='no'?'登録なし':'不明';
-    const cc=r.hasRegistration==='yes'?'has-reg':r.hasRegistration==='no'?'no-reg':'unknown-reg';
+    const bt=isPending?'詳細未入力':r.hasRegistration==='yes'?'登録あり':r.hasRegistration==='no'?'登録なし':'不明';
+    const cc=isPending?'phase1-pending':r.hasRegistration==='yes'?'has-reg':r.hasRegistration==='no'?'no-reg':'unknown-reg';
+    const bcCls=isPending?'pending':'';
     const dt=new Date(r.collectedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    return `<div class="record-card ${cc}" onclick="openDetail('${r.id}')">
-      <div class="rc-header"><span class="rc-num">${escHtml(r.registrationNumber||'（番号なし）')}</span><span class="rc-badge ${bc}">${bt}</span></div>
-      <div class="rc-meta"><span>📅 ${dt}</span><span>🏢 ${escHtml(r.storageLocationName)}</span>${r.lat?'<span>📍 GPS済</span>':''}${r.synced?'<span>✅ 送信済</span>':'<span>🕐 未送信</span>'}</div>
+    const seqBadge=r.sequenceId?`<span class="rc-seq">${escHtml(r.sequenceId)}</span> `:'';
+    const onclick=isPending?`openDetailForm('${r.id}')`:`openDetail('${r.id}')`;
+    return `<div class="record-card ${cc}" onclick="${onclick}">
+      <div class="rc-header">${seqBadge}<span class="rc-num">${escHtml(r.registrationNumber||'（番号なし）')}</span><span class="rc-badge ${bc} ${bcCls}">${bt}</span></div>
+      <div class="rc-meta"><span>📅 ${dt}</span><span>🏢 ${escHtml(r.storageLocationName||'—')}</span>${r.lat?'<span>📍 GPS済</span>':''}${r.synced?'<span>✅ 送信済</span>':'<span>🕐 未送信</span>'}</div>
       ${r.conditions?.length?`<div class="rc-conditions">${escHtml(r.conditions.join(' / '))}</div>`:''}
     </div>`;
   }).join('');
@@ -1031,26 +1161,34 @@ function initModal(){
 function closeModal(){$('modal').style.display='none';}
 window.openDetail=async function(id){
   const records=await dbGetAll();const r=records.find(x=>x.id===id);if(!r)return;
-  const hasRegText={yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'不明';
+  const hasRegText={yes:'あり',no:'なし',unknown:'不明'}[r.hasRegistration]||'—';
   const dt=new Date(r.collectedAt).toLocaleString('ja-JP');
   const mapsUrl=r.lat?`https://maps.google.com/?q=${r.lat},${r.lng}`:null;
+  const photosHtml=(r.photos||[]).map(url=>`<img class="detail-photo" src="${url}" alt="現場写真">`).join('');
   $('modalContent').innerHTML=`
-    <div class="detail-title">回収記録詳細</div>
+    <div class="detail-title">📋 記録詳細${r.sequenceId?` ${escHtml(r.sequenceId)}`:''}</div>
+    ${r.phase===1?'<div class="p2-status pending" style="display:inline-block;margin-bottom:12px;">詳細未入力</div>':''}
+    ${photosHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${photosHtml}</div>`:''}
     ${r.photoDataUrl?`<img class="detail-photo" src="${r.photoDataUrl}" alt="防犯登録シール">`:''}
+    <div class="detail-row"><span class="detail-label">回収日時</span><span class="detail-val">${dt}</span></div>
+    ${r.lat?`<div class="detail-row"><span class="detail-label">GPS</span><span class="detail-val">${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}<br><a href="${mapsUrl}" target="_blank" rel="noopener">地図で確認</a></span></div>`:''}
+    ${r.phase!==1?`
     <div class="detail-row"><span class="detail-label">対応区分</span><span class="detail-val">${escHtml(actionTypeLabel(r.actionType||'immediate'))}</span></div>
     <div class="detail-row"><span class="detail-label">防犯登録</span><span class="detail-val">${hasRegText}</span></div>
     ${r.registrationNumber?`<div class="detail-row"><span class="detail-label">登録番号</span><span class="detail-val">${escHtml(r.registrationNumber)}</span></div>`:''}
-    <div class="detail-row"><span class="detail-label">回収日時</span><span class="detail-val">${dt}</span></div>
     <div class="detail-row"><span class="detail-label">車体状況</span><span class="detail-val">${escHtml(r.conditions?.join(', ')||'—')}</span></div>
     ${r.conditionNote?`<div class="detail-row"><span class="detail-label">状況備考</span><span class="detail-val">${escHtml(r.conditionNote)}</span></div>`:''}
-    ${r.lat?`<div class="detail-row"><span class="detail-label">GPS</span><span class="detail-val">${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}<br><a href="${mapsUrl}" target="_blank">地図で確認</a></span></div>`:''}
     ${r.locationNote?`<div class="detail-row"><span class="detail-label">場所目印</span><span class="detail-val">${escHtml(r.locationNote)}</span></div>`:''}
-    <div class="detail-row"><span class="detail-label">保管場所</span><span class="detail-val">${escHtml(r.storageLocationName)}<br><small>${escHtml(r.storageLocationAddress)}</small></span></div>
+    <div class="detail-row"><span class="detail-label">保管場所</span><span class="detail-val">${escHtml(r.storageLocationName||'—')}<br><small>${escHtml(r.storageLocationAddress||'')}</small></span></div>
     ${r.notes?`<div class="detail-row"><span class="detail-label">備考</span><span class="detail-val">${escHtml(r.notes)}</span></div>`:''}
+    `:''}
     <div class="detail-row"><span class="detail-label">送信状態</span><span class="detail-val">${r.synced?'✅ 送信済み':'🕐 未送信'}</span></div>
     <br>
-    <button class="btn-primary" style="width:100%" onclick="markSynced('${r.id}')">✅ 送信済みとしてマーク</button>
+    ${r.phase===1?`<button class="btn-primary" style="width:100%" onclick="closeModal();openDetailForm('${r.id}')">📝 詳細を入力する</button>`:''}
+    <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="showWarningNotice(window._detailRecord)">🖨 警告票を表示</button>
+    <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="markSynced('${r.id}')">✅ 送信済みとしてマーク</button>
     <button class="btn-danger-outline" style="width:100%;margin-top:8px;" onclick="deleteRecord('${r.id}')">🗑 この記録を削除</button>`;
+  window._detailRecord = r;
   $('modal').style.display='flex';
 };
 window.markSynced=async function(id){const records=await dbGetAll();const r=records.find(x=>x.id===id);if(!r)return;r.synced=true;await dbPut(r);toast('送信済みにマーク');closeModal();renderList();};
