@@ -994,6 +994,27 @@ textarea { resize: vertical; }
   padding: 12px; font-size: 0.92rem; font-weight: 700;
   cursor: pointer; font-family: inherit; margin: 6px 0;
 }
+.p1-qr-btn {
+  width: 100%; background: #6b46c1; color: #fff;
+  border: none; border-radius: 10px;
+  padding: 15px; font-size: 1.05rem; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin: 10px 0 4px;
+  letter-spacing: 0.03em;
+}
+.qr-only-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 16px; padding: 12px 0;
+}
+.qr-only-img {
+  width: 220px; height: 220px; display: block;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+}
+.qr-only-text {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 12px 14px; font-size: 0.78rem; color: #4a5568;
+  white-space: pre-wrap; line-height: 1.6; width: 100%;
+  max-width: 320px; word-break: break-all;
+}
 
 /* Complete card (reuse .nc-*) */
 .n-complete-card { margin: 12px; }

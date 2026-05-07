@@ -641,7 +641,6 @@ async function p1Save() {
     });
     p1ShowComplete(seqNum, todayCount + 1, record);
     updatePhase2Badge();
-    showWarningNotice(record);
   } catch (err) {
     toast('❌ 保存失敗: ' + err.message);
     if (saveBtn) saveBtn.disabled = false;
@@ -657,15 +656,15 @@ function p1ShowComplete(seqNum, count, record) {
     <div class="nc-reg">🔖 ID：${fmtSeqId(seqNum)}</div>
     <div class="nc-storage">${np1.lat ? `📍 GPS済み（±${np1.locationAccuracy}m）` : '📍 GPS未取得'}</div>
     <div class="nc-storage">📷 写真 ${np1.photos.length}枚</div>
+    <button class="p1-qr-btn" id="p1QrBtn">📱 QRコードを表示</button>
     <button class="nc-next-btn" id="p1NextBtn">▶ 次の自転車へ</button>
-    <button class="p1-notice-btn" id="p1NoticeBtn">🖨 警告票を発行する</button>
     <button class="nc-list-btn" id="p1GoDetailBtn">📝 詳細入力へ</button>`;
   card.style.display = 'block';
   if (main) main.style.display = 'none';
   if (saveBtn) saveBtn.style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('p1QrBtn').addEventListener('click', () => showQROnly(record));
   $('p1NextBtn').addEventListener('click', p1Reset);
-  $('p1NoticeBtn').addEventListener('click', () => showWarningNotice(record));
   $('p1GoDetailBtn').addEventListener('click', () => {
     p1Reset();
     document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
@@ -681,6 +680,56 @@ function p1Reset() {
   if (saveBtn) { saveBtn.style.display = 'block'; saveBtn.disabled = false; }
   p1RenderPhotoGrid();
   p1OnTabOpen();
+}
+
+// ── QRコード表示（登録完了時）─────────────────────
+
+async function showQROnly(record) {
+  const ns = getNoticeSettings();
+  const seqId = record.sequenceId || '#---';
+  const foundAt = new Date(record.collectedAt);
+  const removalDate = new Date(foundAt);
+  removalDate.setDate(removalDate.getDate() + (ns.daysUntilRemoval || 7));
+  const fmtDate = d => d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  const fmtTime = d => d.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+  const gpsLine = record.lat
+    ? `北緯${record.lat.toFixed(5)}、東経${record.lng.toFixed(5)}（精度±${record.locationAccuracy}m）`
+    : '（GPS未記録）';
+  const ordinance = ns.ordinanceName || '放置自転車防止条例';
+  const fee = ns.storageFee || '（別途通知）';
+  const phone = ns.contactPhone || '（担当窓口へお問い合わせください）';
+
+  const qrText = [
+    '【放置自転車 撤去警告書】',
+    `管理番号: ${seqId}`,
+    `発見日時: ${fmtDate(foundAt)} ${fmtTime(foundAt)}`,
+    `撤去予定日: ${fmtDate(removalDate)}`,
+    `発見位置: ${gpsLine}`,
+    '',
+    `この自転車は${ordinance}に基づき、放置自転車として確認・登録されました。`,
+    `上記の撤去予定日までにお引き取りにならない場合、撤去・保管いたします。`,
+    `撤去後の返還には保管料 ${fee} が必要です。`,
+    `お問い合わせ先: ${phone}`,
+  ].join('\n');
+
+  let qrDataUrl = '';
+  try {
+    if (typeof QRCode !== 'undefined') {
+      qrDataUrl = await QRCode.toDataURL(qrText, { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } });
+    }
+  } catch (e) {}
+
+  $('modalContent').innerHTML = `
+    <div class="detail-title">📱 QRコード — ${escHtml(seqId)}</div>
+    <div class="qr-only-wrap">
+      ${qrDataUrl
+        ? `<img src="${qrDataUrl}" class="qr-only-img" alt="QRコード" />`
+        : '<p class="muted center">QRコード生成に失敗しました</p>'}
+      <div class="qr-only-text">${escHtml(qrText)}</div>
+    </div>
+    <button class="btn-secondary" style="margin-top:16px;width:100%;"
+      onclick="document.getElementById('modal').style.display='none'">閉じる</button>`;
+  $('modal').style.display = 'flex';
 }
 
 // ── 警告票（放置自転車所有者向け通知）─────────────
