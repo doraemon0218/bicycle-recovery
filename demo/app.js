@@ -699,33 +699,24 @@ async function showQROnly(record) {
   const fee = ns.storageFee || '（別途通知）';
   const phone = ns.contactPhone || '（担当窓口へお問い合わせください）';
 
-  const qrText = [
-    '【放置自転車 撤去警告書】',
-    `管理番号: ${seqId}`,
-    `発見日時: ${fmtDate(foundAt)} ${fmtTime(foundAt)}`,
-    `撤去予定日: ${fmtDate(removalDate)}`,
-    `発見位置: ${gpsLine}`,
-    '',
-    `この自転車は${ordinance}に基づき、放置自転車として確認・登録されました。`,
-    `上記の撤去予定日までにお引き取りにならない場合、撤去・保管いたします。`,
-    `撤去後の返還には保管料 ${fee} が必要です。`,
-    `お問い合わせ先: ${phone}`,
-  ].join('\n');
+  // QRコードにはrecord.idを含むURLを埋め込む（同端末でQRスキャン→詳細入力）
+  const baseUrl = window.location.href.split('#')[0];
+  const qrUrl = `${baseUrl}#detail=${encodeURIComponent(record.id)}`;
 
   let qrDataUrl = '';
   try {
     if (typeof QRCode !== 'undefined') {
-      qrDataUrl = await QRCode.toDataURL(qrText, { width: 260, margin: 2, color: { dark: '#000', light: '#fff' } });
+      qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 260, margin: 2, color: { dark: '#000', light: '#fff' } });
     }
   } catch (e) {}
 
-  // printArea にも同内容をセット（印刷時に使用）
+  // 印刷用スリップ（printAreaにセット）
   const slipHtml = `
     <div class="qr-print-slip">
       <div class="qr-print-title">放置自転車 撤去警告書</div>
       <div class="qr-print-id">管理番号：${escHtml(seqId)}</div>
       ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-print-img" alt="QRコード" />` : ''}
-      <div class="qr-print-label">このQRコードをスキャンすると撤去情報を確認できます</div>
+      <div class="qr-print-label">QRコードをスキャンすると詳細情報を確認できます</div>
       <table class="qr-print-table">
         <tr><th>発見日時</th><td>${fmtDate(foundAt)} ${fmtTime(foundAt)}</td></tr>
         <tr><th>撤去予定日</th><td>${fmtDate(removalDate)}</td></tr>
@@ -741,35 +732,52 @@ async function showQROnly(record) {
   const printArea = $('printArea');
   if (printArea) printArea.innerHTML = slipHtml;
 
-  // 完了カードをQR表示画面に切り替え（画面遷移）
-  const card = $('p1CompleteCard');
-  if (!card) return;
-  card.innerHTML = `
-    <div class="qr-screen-header">
-      <div class="qr-screen-id">📋 ${escHtml(seqId)}</div>
-      <div class="qr-screen-label">QRコード</div>
-    </div>
-    <div class="qr-screen-img-wrap">
-      ${qrDataUrl
-        ? `<img src="${qrDataUrl}" class="qr-screen-img" alt="QRコード" />`
-        : '<p class="muted center">QRコード生成に失敗しました</p>'}
-    </div>
-    <div class="qr-screen-info">
-      <div class="qr-screen-row"><span>発見日時</span><span>${fmtDate(foundAt)} ${fmtTime(foundAt)}</span></div>
-      <div class="qr-screen-row"><span>撤去予定日</span><span>${fmtDate(removalDate)}</span></div>
-    </div>
-    <div class="qr-screen-btns">
-      <button class="btn-primary qr-screen-print-btn" id="qrPrintBtn">🖨 印刷する</button>
-      <button class="nc-next-btn" id="qrNextBtn">▶ 次の自転車へ</button>
-      <button class="nc-list-btn" id="qrDetailBtn">📝 詳細入力へ</button>
-    </div>`;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  $('qrPrintBtn').addEventListener('click', () => window.print());
-  $('qrNextBtn').addEventListener('click', p1Reset);
-  $('qrDetailBtn').addEventListener('click', () => {
-    p1Reset();
-    document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
-  });
+  // 通常版の完了カードが表示中 → カード内をQR画面に切替
+  const completeCard = $('p1CompleteCard');
+  if (completeCard && completeCard.style.display !== 'none') {
+    completeCard.innerHTML = `
+      <div class="qr-screen-header">
+        <div class="qr-screen-id">📋 ${escHtml(seqId)}</div>
+        <div class="qr-screen-label">QRコード</div>
+      </div>
+      <div class="qr-screen-img-wrap">
+        ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-screen-img" alt="QRコード" />` : '<p class="muted center">QRコード生成に失敗しました</p>'}
+      </div>
+      <div class="qr-screen-info">
+        <div class="qr-screen-row"><span>管理番号</span><span><strong>${escHtml(seqId)}</strong></span></div>
+        <div class="qr-screen-row"><span>発見日時</span><span>${fmtDate(foundAt)} ${fmtTime(foundAt)}</span></div>
+        <div class="qr-screen-row"><span>撤去予定日</span><span>${fmtDate(removalDate)}</span></div>
+      </div>
+      <div class="qr-screen-btns">
+        <button class="btn-primary qr-screen-print-btn" id="qrPrintBtn">🖨 印刷する</button>
+        <button class="nc-next-btn" id="qrNextBtn">▶ 次の自転車へ</button>
+        <button class="nc-list-btn" id="qrDetailBtn">📝 詳細入力へ</button>
+      </div>`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('qrPrintBtn').addEventListener('click', () => window.print());
+    $('qrNextBtn').addEventListener('click', p1Reset);
+    $('qrDetailBtn').addEventListener('click', () => {
+      p1Reset();
+      document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
+    });
+  } else {
+    // らくらくver or 詳細モーダルから → モーダルで表示
+    $('modalContent').innerHTML = `
+      <div class="detail-title">📱 QRコード — ${escHtml(seqId)}</div>
+      <div class="qr-screen-img-wrap" style="padding:12px 0;">
+        ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr-screen-img" alt="QRコード" />` : '<p class="muted center">QRコード生成に失敗しました</p>'}
+      </div>
+      <div class="qr-screen-info">
+        <div class="qr-screen-row"><span>管理番号</span><span><strong>${escHtml(seqId)}</strong></span></div>
+        <div class="qr-screen-row"><span>発見日時</span><span>${fmtDate(foundAt)} ${fmtTime(foundAt)}</span></div>
+        <div class="qr-screen-row"><span>撤去予定日</span><span>${fmtDate(removalDate)}</span></div>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+        <button class="btn-primary qr-screen-print-btn" onclick="window.print()">🖨 印刷する</button>
+        <button class="btn-secondary" onclick="document.getElementById('modal').style.display='none'">閉じる</button>
+      </div>`;
+    $('modal').style.display = 'flex';
+  }
 }
 
 // ── 警告票（放置自転車所有者向け通知）─────────────
@@ -1297,79 +1305,62 @@ window.markSynced=async function(id){const records=await dbGetAll();const r=reco
 window.deleteRecord=async function(id){if(!confirm('削除しますか？'))return;await dbDelete(id);toast('削除しました');closeModal();renderList();};
 
 // ═══════════════════════════════════════════════
-// らくらくverウィザード
+// らくらくver ─ 2段階登録ワークフロー
+// フェーズ1（現場）: GPS → 写真 → 対応区分 → 保存 → QR
+// フェーズ2（保管庫）: QR読取 → 詳細入力 → 警察提出
 // ═══════════════════════════════════════════════
+
 const sv = {
   currentStep: 0,
   started: false,
-  liveClock: null,  // setInterval ID for the datetime step live clock
-  state: {
-    actionType:null,
-    hasReg:null, photoDataUrl:null,
-    regNumber:'', regNumberConfirm:'',
-    ocrPrediction:'', inputMethod:'manual',
-    conditions:[], conditionDetails:{}, conditionNote:'',
-    lat:null, lng:null, locationAccuracy:null,
-    collectedAt:null, storageId:null, notes:''
-  },
+  p1Photos: [],
+  state: { lat: null, lng: null, locationAccuracy: null, actionType: null },
 };
+
 const SV_STEPS = [
-  { id:'reg',       title:'防犯登録シールについて',       render:svRenderReg },
-  { id:'photo',     title:'シールを撮影して番号を入力',   render:svRenderPhoto, skip:()=>sv.state.hasReg!=='yes' },
-  { id:'condition', title:'自転車の状態を教えてください', render:svRenderCondition },
-  { id:'location',  title:'現在地を記録します',           render:svRenderLocation },
-  { id:'datetime',  title:'回収日時を確認してください',   render:svRenderDatetime },
-  { id:'action',    title:'この自転車をどうしますか？',   render:svRenderAction },
-  { id:'storage',   title:'保管場所を選んでください',     render:svRenderStorage, skip:()=>sv.state.actionType==='observation' },
-  { id:'notes',     title:'特記事項・メモ（任意）',       render:svRenderNotes },
-  { id:'confirm',   title:'確認して保存しましょう',       render:svRenderConfirm },
+  { id:'p1gps',    title:'現在地を記録します',         render: svRenderP1Gps },
+  { id:'p1photos', title:'現場の写真を撮ってください', render: svRenderP1Photos },
+  { id:'p1action', title:'この自転車をどうしますか？', render: svRenderP1Action },
+  { id:'p1done',   title:'確認して保存',               render: svRenderP1Confirm },
 ];
-const svActiveSteps = () => SV_STEPS.filter(s => !s.skip?.());
 
 function svInit() {
-  // Tab nav
   document.querySelectorAll('.sv-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      const currentTabName = document.querySelector('.sv-tab.active')?.dataset.svTab;
-      const newTabName = tab.dataset.svTab;
-      if (currentTabName === newTabName) return;
-      // 入力中にホームタブから離れようとした場合は確認
-      if (currentTabName === 'home' && sv.started) {
-        if (!svConfirmAbort()) return;
-        svResetState();
-      }
-      document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
-      document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
+      const cur = document.querySelector('.sv-tab.active')?.dataset.svTab;
+      const next = tab.dataset.svTab;
+      if (cur === next) return;
+      if (cur === 'home' && sv.started && !svConfirmAbort()) return;
+      if (cur === 'home' && sv.started) svResetState();
+      document.querySelectorAll('.sv-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.sv-tab-content').forEach(c => c.classList.remove('active'));
       tab.classList.add('active');
-      $(`sv${newTabName.charAt(0).toUpperCase()+newTabName.slice(1)}Tab`).classList.add('active');
-      if(newTabName==='list') svRenderList();
-      if(newTabName==='home') svRenderCurrentStep();
+      $(`sv${next.charAt(0).toUpperCase()}${next.slice(1)}Tab`).classList.add('active');
+      if (next === 'list') svRenderList();
+      if (next === 'phase2') svRenderPhase2Tab();
+      if (next === 'home') svRenderCurrentStep();
     });
   });
   $('svPrevBtn').addEventListener('click', svPrev);
   $('svNextBtn').addEventListener('click', svNext);
-  $('svResetBtn').addEventListener('click', () => {
-    if (svConfirmAbort()) svGoHome();
-  });
-  // ロール選択（トップ）に戻るボタン
+  $('svResetBtn').addEventListener('click', () => { if (svConfirmAbort()) svGoHome(); });
   $('svTopPageBtn')?.addEventListener('click', () => {
     if (!svConfirmAbort()) return;
     window.location.href = './index.html';
   });
+  svUpdatePhase2Badge();
   svRenderCurrentStep();
 }
 
 function svResetState() {
-  sv.currentStep = 0;
-  sv.started = false;
-  clearInterval(sv.liveClock); sv.liveClock = null;
-  sv.state = {actionType:null,hasReg:null,photoDataUrl:null,regNumber:'',regNumberConfirm:'',ocrPrediction:'',inputMethod:'manual',conditions:[],conditionDetails:{},conditionNote:'',lat:null,lng:null,locationAccuracy:null,collectedAt:null,storageId:null,notes:''};
+  sv.currentStep = 0; sv.started = false; sv.p1Photos = [];
+  sv.state = { lat: null, lng: null, locationAccuracy: null, actionType: null };
 }
 
 function svGoHome() {
   svResetState();
-  document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.sv-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sv-tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector('.sv-tab[data-sv-tab="home"]').classList.add('active');
   $('svHomeTab').classList.add('active');
   svRenderCurrentStep();
@@ -1377,8 +1368,17 @@ function svGoHome() {
 
 function svConfirmAbort() {
   if (!sv.started) return true;
-  return confirm('この自転車（１台分）の登録は中断されますが、よろしいですか？');
+  return confirm('この自転車の登録を中断しますか？');
 }
+
+async function svUpdatePhase2Badge() {
+  const all = await dbGetAll();
+  const pending = all.filter(r => r.phase === 1).length;
+  const badge = $('svPhase2Badge');
+  if (badge) badge.textContent = pending > 0 ? ` ${pending}` : '';
+}
+
+// ─── スタート画面 ─────────────────────────────────
 
 function svRenderStart() {
   const nav = document.querySelector('.sv-bottom-nav');
@@ -1386,28 +1386,23 @@ function svRenderStart() {
   $('svResetBtn').style.display = 'none';
   $('svProgressFill').style.width = '0%';
   $('svStepLabel').textContent = '準備中…';
-  const content = $('svStepContent');
-  content.innerHTML = '';
+  const content = $('svStepContent'); content.innerHTML = '';
   const card = document.createElement('div');
   card.className = 'sv-card sv-start-card';
   card.innerHTML = `
     <div class="sv-start-icon">🚲</div>
-    <div class="sv-start-title">１台分の自転車を<br>登録します</div>
+    <div class="sv-start-title">現場の自転車を<br>記録します</div>
     <div class="sv-start-count-badge" id="svStartCountBadge" style="display:none;"></div>
     <div class="sv-start-steps">
-      <div class="sv-start-step-item"><span class="sv-start-step-num">1</span>防犯登録の確認</div>
-      <div class="sv-start-step-item"><span class="sv-start-step-num">2</span>自転車の状態</div>
-      <div class="sv-start-step-item"><span class="sv-start-step-num">3</span>現在地の記録</div>
-      <div class="sv-start-step-item"><span class="sv-start-step-num">4</span>保管場所の選択</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">1</span>GPS位置を自動記録</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">2</span>現場写真を撮影（複数枚）</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">3</span>撤去 or 経過観察を選択</div>
+      <div class="sv-start-step-item"><span class="sv-start-step-num">4</span>保存してQRシールを発行</div>
     </div>
-    <button class="sv-start-btn" id="svStartBtn">入力を始める ▶</button>`;
+    <button class="sv-start-btn" id="svStartBtn">📍 登録を始める ▶</button>`;
   content.appendChild(card);
-  window.scrollTo({top:0,behavior:'smooth'});
-  $('svStartBtn').addEventListener('click', () => {
-    sv.started = true;
-    svRenderCurrentStep();
-  });
-  // 勤務終了ボタン
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('svStartBtn').addEventListener('click', () => { sv.started = true; svRenderCurrentStep(); });
   const shiftEndBtn = document.createElement('button');
   shiftEndBtn.className = 'sv-shift-end-btn';
   shiftEndBtn.textContent = '📋 本日の勤務を終了する（CSV出力）';
@@ -1421,10 +1416,9 @@ function svRenderStart() {
     card.appendChild(info);
   }
   countTodayRecords().then(count => {
-    const badge = $('svStartCountBadge');
-    const label = $('svStepLabel');
+    const badge = $('svStartCountBadge'), label = $('svStepLabel');
     if (count > 0) {
-      if (badge) { badge.textContent = `本日 ${count} 台完了`; badge.style.display = 'inline-block'; }
+      if (badge) { badge.textContent = `本日 ${count} 台登録済み`; badge.style.display = 'inline-block'; }
       if (label) label.textContent = `本日 ${count} 台登録済み`;
     } else {
       if (label) label.textContent = '最初の１台を登録します';
@@ -1432,77 +1426,110 @@ function svRenderStart() {
   });
 }
 
+// ─── ウィザード制御 ───────────────────────────────
+
 function svRenderCurrentStep() {
-  clearInterval(sv.liveClock); sv.liveClock = null;
   if (!sv.started) { svRenderStart(); return; }
   const nav = document.querySelector('.sv-bottom-nav');
   if (nav) nav.style.display = '';
-  const steps = svActiveSteps();
-  const idx = sv.currentStep, total = steps.length;
-  const step = steps[idx];
+  const total = SV_STEPS.length, idx = sv.currentStep, step = SV_STEPS[idx];
   $('svProgressFill').style.width = `${((idx+1)/total)*100}%`;
   $('svStepLabel').textContent = `ステップ ${idx+1} / ${total}`;
   $('svResetBtn').style.display = idx > 0 ? 'block' : 'none';
   $('svPrevBtn').disabled = idx === 0;
-  if(idx===total-1){$('svNextBtn').textContent='✅ 登録する';$('svNextBtn').className='sv-btn-next last-step';}
-  else{$('svNextBtn').textContent='つぎへ →';$('svNextBtn').className='sv-btn-next';}
-  const content=$('svStepContent'); content.innerHTML='';
-  const card=document.createElement('div'); card.className='sv-card';
-  card.innerHTML=`<div class="sv-step-title">${step.title}</div>`;
+  if (idx === total-1) { $('svNextBtn').textContent = '✅ 保存する'; $('svNextBtn').className = 'sv-btn-next last-step'; }
+  else { $('svNextBtn').textContent = 'つぎへ →'; $('svNextBtn').className = 'sv-btn-next'; }
+  const content = $('svStepContent'); content.innerHTML = '';
+  const card = document.createElement('div'); card.className = 'sv-card';
+  card.innerHTML = `<div class="sv-step-title">${step.title}</div>`;
   content.appendChild(card); step.render(card);
-  window.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function svNext() {
-  const steps=svActiveSteps(), step=steps[sv.currentStep], errEl=$('svErr');
-  if(!svValidate(step.id,errEl)) return;
-  if(sv.currentStep<steps.length-1){sv.currentStep++;svRenderCurrentStep();}
-  else svSave();
+  const step = SV_STEPS[sv.currentStep];
+  if (step.id === 'p1photos' && sv.p1Photos.length < 1) { toast('⚠️ 写真を1枚以上撮ってください'); return; }
+  if (step.id === 'p1action' && !sv.state.actionType) { toast('⚠️ 対応区分を選んでください'); return; }
+  if (sv.currentStep < SV_STEPS.length - 1) { sv.currentStep++; svRenderCurrentStep(); }
+  else svSaveP1();
 }
-function svPrev(){if(sv.currentStep>0){sv.currentStep--;svRenderCurrentStep();}}
-function svValidate(id,errEl){
-  const show=msg=>{if(errEl){errEl.textContent='⚠️ '+msg;errEl.classList.add('show');}else toast('⚠️ '+msg);return false;};
-  if(id==='action'&&!sv.state.actionType)return show('どうするか選んでください');
-  if(id==='reg'&&sv.state.hasReg===null)return show('シールの有無を選んでください');
-  if(id==='photo'){
-    const v1=sv.state.regNumber.trim(), v2=sv.state.regNumberConfirm.trim();
-    if(v1&&!v2)return show('確認のため、番号をもう一度入力してください');
-    if(v1&&v2&&v1!==v2)return show('1回目と2回目の番号が一致しません。確認して修正してください。');
+function svPrev() { if (sv.currentStep > 0) { sv.currentStep--; svRenderCurrentStep(); } }
+
+// ─── Phase 1 ステップ描画 ────────────────────────
+
+function svRenderP1Gps(card) {
+  const hasGps = sv.state.lat !== null;
+  let accHtml = '';
+  if (hasGps) {
+    const acc = accuracyInfo(sv.state.locationAccuracy);
+    accHtml = `<div class="sv-gps-result ok">
+      <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
+      <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
+      <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する →</a>
+    </div>`;
   }
-  if(id==='storage'&&!sv.state.storageId)return show('保管場所を選んでください');
-  return true;
+  card.innerHTML += `
+    <p class="sv-step-hint">ボタンを押すとGPSが現在地を記録します。<br>初回は「<strong>許可</strong>」を選んでください。</p>
+    <button class="sv-gps-btn" id="svGpsBtn">${hasGps ? '🔄 位置情報を取り直す' : '📍 現在地を記録する'}</button>
+    <div id="svGpsResult">${accHtml}</div>
+    <p class="sv-step-hint" style="margin-top:12px;">❓ 取得できない場合はそのまま「つぎへ」でも構いません。</p>`;
+  $('svGpsBtn').addEventListener('click', async () => {
+    const btn = $('svGpsBtn'); btn.disabled = true; btn.textContent = '⏳ 取得中…';
+    const resultEl = $('svGpsResult');
+    try {
+      const pos = await requestGPS((type, msg) => {
+        if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result ${type}">${msg.replace(/\n/g,'<br>')}</div>`;
+      });
+      sv.state.lat = pos.coords.latitude;
+      sv.state.lng = pos.coords.longitude;
+      sv.state.locationAccuracy = Math.round(pos.coords.accuracy);
+      const acc = accuracyInfo(sv.state.locationAccuracy);
+      if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result ok">
+        <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
+        <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
+        <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する →</a>
+      </div>`;
+      btn.textContent = '🔄 位置情報を取り直す'; toast('📍 現在地を記録しました');
+    } catch (err) {
+      if (err.code === 1) { if (resultEl) showGpsDenied(resultEl, true); }
+      else if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result error">${gpsErrorMsg(err)}</div>`;
+      btn.textContent = '🔄 もう一度試す';
+    } finally { btn.disabled = false; }
+  });
 }
 
-function svRenderAction(card) {
-  // 前ステップ入力漏れチェック
-  const regText = sv.state.hasReg==='yes'
-    ? `あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':''}`
-    : sv.state.hasReg==='no'?'なし':'不明';
-  const hasCond = sv.state.conditions.length > 0;
-  const hasGps  = !!sv.state.lat;
-  const hasDt   = !!sv.state.collectedAt;
-  const checkItems = [
-    { icon:'✅', cls:'ok',   label:'防犯登録',  val:regText },
-    { icon:hasCond?'✅':'⚠️', cls:hasCond?'ok':'warn', label:'自転車の状態', val:hasCond?sv.state.conditions.join('、'):'未選択（任意）' },
-    { icon:hasGps?'✅':'⚠️',  cls:hasGps?'ok':'warn',  label:'GPS位置',     val:hasGps?`取得済み（±${sv.state.locationAccuracy}m）`:'未取得（任意）' },
-    { icon:hasDt?'✅':'❌',   cls:hasDt?'ok':'err',    label:'回収日時',    val:hasDt?formatDatetimeJa(sv.state.collectedAt):'未入力' },
-  ];
-  const hasErr  = checkItems.some(i=>i.cls==='err');
-  const hasWarn = checkItems.some(i=>i.cls==='warn');
+function svRenderP1Photos(card) {
+  const render = () => {
+    const photosHtml = sv.p1Photos.map((url, i) => `
+      <div class="sv-p1-photo-wrap">
+        <img src="${url}" class="sv-p1-photo-thumb" alt="写真${i+1}" />
+        <button class="sv-p1-photo-del" onclick="svDeleteP1Photo(${i})">✕</button>
+      </div>`).join('');
+    const count = sv.p1Photos.length;
+    card.innerHTML = `
+      <div class="sv-step-title">現場の写真を撮ってください</div>
+      <p class="sv-step-hint">自転車の全体・正面・防犯シールなどを撮影（3〜5枚推奨）</p>
+      <div class="sv-p1-photo-count ${count >= 3 ? 'ok' : ''}">${count} / 5枚${count >= 3 ? ' ✅' : ''}</div>
+      <div class="sv-p1-photo-grid">${photosHtml}</div>
+      ${count < 5 ? `<button class="sv-p1-add-photo-btn" id="svP1AddPhotoBtn">📷 写真を追加する</button>` : ''}
+      <input type="file" id="svP1PhotoInput" accept="image/*" capture="environment" style="display:none;" />`;
+    $('svP1AddPhotoBtn')?.addEventListener('click', () => $('svP1PhotoInput').click());
+    $('svP1PhotoInput')?.addEventListener('change', async e => {
+      const file = e.target.files[0]; if (!file) return;
+      sv.p1Photos.push(await resizeImage(file)); render(); e.target.value = '';
+    });
+  };
+  render();
+}
+window.svDeleteP1Photo = function(idx) { sv.p1Photos.splice(idx, 1); svRenderCurrentStep(); };
 
+function svRenderP1Action(card) {
   const opts = [
-    { val:'immediate',   icon:'🚛', label:'すぐに撤去する',           sub:'今すぐ引き取って保管場所に運びます' },
-    { val:'observation', icon:'📋', label:'シールを貼って様子を見る', sub:'違反者シールを貼り、その場に残します' },
-    { val:'other',       icon:'📝', label:'その他',                   sub:'担当者に確認してください' },
+    { val:'immediate',   icon:'🚛', label:'撤去する',  sub:'今すぐ引き取って搬送します' },
+    { val:'observation', icon:'👁',  label:'経過観察',  sub:'QRシールを貼ってその場に残す' },
   ];
-
   card.innerHTML += `
-    <div class="sv-action-check">
-      <div class="sv-action-check-title ${hasErr?'err':hasWarn?'warn':'ok'}">${hasErr?'❌ 入力漏れがあります':hasWarn?'⚠️ 未入力の項目があります':'✅ ここまでの入力確認'}</div>
-      ${checkItems.map(i=>`<div class="sv-action-check-item ${i.cls}"><span>${i.icon}</span><span>${i.label}</span><span class="sv-action-check-val">${escHtml(i.val)}</span></div>`).join('')}
-      ${hasErr||hasWarn?`<p class="sv-action-check-hint">⚠️ の項目は「もどる」で修正できます</p>`:''}
-    </div>
-    <p class="sv-step-hint" style="margin-top:14px;">この自転車をどう対応するか選んでください</p>
+    <p class="sv-step-hint">この自転車をどう対応するか選んでください</p>
     <div class="sv-choice-grid">
       ${opts.map(o=>`
         <button class="sv-choice-btn${sv.state.actionType===o.val?' selected':''}" data-action="${o.val}">
@@ -1515,346 +1542,183 @@ function svRenderAction(card) {
   card.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', () => {
       sv.state.actionType = btn.dataset.action;
-      card.querySelectorAll('[data-action]').forEach(b=>b.classList.remove('selected'));
+      card.querySelectorAll('[data-action]').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      const err=$('svErr'); if(err){err.textContent='';err.classList.remove('show');}
-    });
-  });
-}
-
-function svRenderReg(card) {
-  card.innerHTML+=`<p class="sv-step-hint">自転車についている防犯登録のシールを確認してください</p>
-    <div class="sv-choice-grid">
-      ${[{val:'yes',icon:'✅',label:'シールがある',sub:'番号が書いてあるシール'},
-         {val:'no',icon:'❌',label:'シールがない',sub:'シールが見当たらない'},
-         {val:'unknown',icon:'❓',label:'わからない',sub:'確認できなかった'}].map(o=>`
-        <button class="sv-choice-btn${sv.state.hasReg===o.val?' selected':''}" data-reg="${o.val}">
-          <span class="sv-choice-icon">${o.icon}</span>
-          <span><span>${o.label}</span><span class="sv-choice-sub">${o.sub}</span></span>
-        </button>`).join('')}
-    </div>
-    <div class="sv-error-msg" id="svErr"></div>`;
-  card.querySelectorAll('[data-reg]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      sv.state.hasReg=btn.dataset.reg;
-      card.querySelectorAll('[data-reg]').forEach(b=>b.className='sv-choice-btn');
-      btn.className='sv-choice-btn selected';
       $('svErr')?.classList.remove('show');
     });
   });
 }
 
-function svUpdateRegMatch() {
-  const v1=(sv.state.regNumber||'').trim();
-  const v2=(sv.state.regNumberConfirm||'').trim();
-  const el=$('svRegMatchStatus'); if(!el) return;
-  if(!v1||!v2){el.style.display='none';return;}
-  el.style.display='block';
-  if(v1===v2){el.className='reg-match ok';el.textContent='✅ 一致しました';}
-  else{el.className='reg-match error';el.textContent='❌ 一致しません。どちらかを修正してください。';}
-}
-
-function svRenderPhoto(card) {
-  const hasPhoto=!!sv.state.photoDataUrl;
-  card.innerHTML+=`<p class="sv-step-hint">シールに近づいて撮影してください。<br>撮影後、番号を2回入力して一致を確認します。</p>
-    ${hasPhoto?`<img class="sv-photo-preview" src="${sv.state.photoDataUrl}" alt="写真">`:''}
-    <button class="sv-camera-btn${hasPhoto?' done':''}" id="svCameraBtn">
-      ${hasPhoto?'📷 撮り直す':'📷 カメラで撮影する'}
-    </button>
-    <input type="file" id="svPhotoInput" accept="image/*" capture="environment" style="display:none;" />
-    ${hasPhoto?`<div class="sv-ocr-box">
-      <div class="sv-ocr-label">🔢 登録番号（1回目）</div>
-      <input class="sv-ocr-input" id="svRegInput" type="text" value="${escHtml(sv.state.regNumber)}" inputmode="text" autocomplete="off" placeholder="例: 東京 12345678" />
-      <div class="sv-ocr-label" style="margin-top:14px;">🔢 登録番号（もう一度・確認）</div>
-      <input class="sv-ocr-input" id="svRegConfirmInput" type="text" value="${escHtml(sv.state.regNumberConfirm)}" inputmode="text" autocomplete="off" placeholder="同じ番号をもう一度入力" />
-      <div id="svRegMatchStatus" class="reg-match" style="display:none;"></div>
-    </div>`:''}
-    <div class="sv-error-msg" id="svErr"></div>`;
-  $('svCameraBtn').addEventListener('click',()=>$('svPhotoInput').click());
-  $('svPhotoInput').addEventListener('change',async e=>{
-    const file=e.target.files[0]; if(!file) return;
-    const dataUrl=await resizeImage(file);
-    sv.state.photoDataUrl=dataUrl; sv.state.regNumber=''; sv.state.regNumberConfirm='';
-    sv.state.ocrPrediction=''; sv.state.inputMethod='manual';
-    svRenderCurrentStep();
-    e.target.value='';
-  });
-  const inp=$('svRegInput');
-  if(inp) inp.addEventListener('input',()=>{sv.state.regNumber=inp.value;svUpdateRegMatch();});
-  const inp2=$('svRegConfirmInput');
-  if(inp2) inp2.addEventListener('input',()=>{sv.state.regNumberConfirm=inp2.value;svUpdateRegMatch();});
-  svUpdateRegMatch();
-}
-
-function svRenderCondition(card) {
-  card.innerHTML+=`<p class="sv-step-hint">あてはまるものをすべてタップしてください（なければそのまま「つぎへ」）</p><div class="sv-cond-grid" id="svCondGrid"></div>`;
-  const grid=card.querySelector('#svCondGrid');
-  SV_CONDITION_OPTIONS.forEach(o=>{
-    const wrap=document.createElement('div');
-    const checked=sv.state.conditions.includes(o.label);
-    const label=document.createElement('label');
-    label.className='sv-cond-label'+(checked?' checked':'');
-    const cb=document.createElement('input'); cb.type='checkbox'; cb.value=o.label;
-    if(checked) cb.checked=true;
-    const span=document.createElement('span'); span.textContent=o.icon+' '+o.label;
-    label.appendChild(cb); label.appendChild(span);
-    const detailEl=createConditionDetailEl(o.label,sv.state.conditionDetails,true);
-    if(checked) detailEl.classList.add('show');
-    cb.addEventListener('change',()=>{
-      label.classList.toggle('checked',cb.checked);
-      detailEl.classList.toggle('show',cb.checked);
-      if(cb.checked){if(!sv.state.conditions.includes(cb.value))sv.state.conditions.push(cb.value);}
-      else{sv.state.conditions=sv.state.conditions.filter(c=>c!==cb.value);delete sv.state.conditionDetails[cb.value];}
-    });
-    wrap.appendChild(label); wrap.appendChild(detailEl); grid.appendChild(wrap);
-  });
-}
-
-function svRenderNotes(card) {
-  card.innerHTML+=`<p class="sv-step-hint">色・メーカー・特徴など、気になることがあれば書いてください。<br>なければそのまま「つぎへ」を押してください。</p>
-    <textarea class="sv-notes-input" id="svNotesInput" rows="5" placeholder="例：赤いママチャリ、前カゴあり、鍵なし">${escHtml(sv.state.notes)}</textarea>`;
-  const ta=$('svNotesInput');
-  if(ta) ta.addEventListener('input',()=>{sv.state.notes=ta.value;});
-}
-
-function svRenderDatetime(card) {
-  function nowLocal() {
-    const now = new Date();
-    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  }
-  // 常に現在時刻で初期化（ステップに来るたびに最新化）
-  sv.state.collectedAt = nowLocal();
-
+function svRenderP1Confirm(card) {
+  const gpsStatus = sv.state.lat ? `✅ 取得済み（±${sv.state.locationAccuracy}m）` : '⚠️ 未取得';
+  const actionLabel = sv.state.actionType === 'immediate' ? '🚛 撤去する' : '👁 経過観察';
   card.innerHTML += `
-    <p class="sv-step-hint">現在の日時が自動で記録されます。<br>そのまま「つぎへ」を押してください。</p>
-    <div class="sv-live-clock" id="svLiveClock"></div>
-    <details class="sv-datetime-manual">
-      <summary>⚙️ 日時を手動で変更する場合</summary>
-      <div class="sv-datetime-wrap" style="margin-top:10px;">
-        <input class="sv-datetime-input" id="svDatetimeInput" type="datetime-local" value="${sv.state.collectedAt}" />
-      </div>
-    </details>
-    <div class="sv-error-msg" id="svErr"></div>`;
-
-  // ライブクロック（毎秒更新）
-  function updateClock() {
-    const el = $('svLiveClock');
-    if (!el) { clearInterval(sv.liveClock); return; }
-    const now = new Date();
-    el.innerHTML =
-      `<div class="sv-clock-time">${now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>` +
-      `<div class="sv-clock-date">${now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</div>`;
-    // 手動変更中は自動更新しない
-    if (!$('svDatetimeInput')?.dataset.manual) {
-      sv.state.collectedAt = nowLocal();
-      if ($('svDatetimeInput')) $('svDatetimeInput').value = sv.state.collectedAt;
-    }
-  }
-  updateClock();
-  sv.liveClock = setInterval(updateClock, 1000);
-
-  // 手動変更時はライブ更新を停止
-  card.querySelector('#svDatetimeInput')?.addEventListener('input', e => {
-    e.target.dataset.manual = '1';
-    sv.state.collectedAt = e.target.value;
-  });
-  // details を開いたら手動モードの注意表示
-  card.querySelector('.sv-datetime-manual')?.addEventListener('toggle', function() {
-    if (!this.open) {
-      // 閉じたら自動モードに戻す
-      delete card.querySelector('#svDatetimeInput')?.dataset.manual;
-    }
-  });
-}
-
-function formatDatetimeJa(dtStr){
-  if(!dtStr)return '';
-  const d=new Date(dtStr);
-  return d.toLocaleString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'});
-}
-
-function svRenderLocation(card) {
-  const hasGps = sv.state.lat !== null;
-  let accHtml = '';
-  if (hasGps) {
-    const acc = accuracyInfo(sv.state.locationAccuracy);
-    accHtml = `<div class="sv-gps-result ok">
-      <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
-      <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
-      <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する（ネット接続時）→</a>
-    </div>`;
-  }
-  card.innerHTML += `
-    <p class="sv-step-hint">ボタンを押すとスマートフォンのGPSが現在地を記録します。<br>
-    <strong>インターネット接続がなくても使えます。</strong><br>
-    初回は「<strong>許可</strong>」を選んでください。</p>
-    <button class="sv-gps-btn" id="svGpsBtn">
-      ${hasGps ? '🔄 位置情報を取り直す' : '📍 現在地を記録する'}
-    </button>
-    <div id="svGpsResult">${accHtml}</div>
-    <p class="sv-step-hint" style="margin-top:12px;">
-      ❓ 取得できない場合はそのまま「つぎへ」を押しても構いません。
-    </p>`;
-
-  const gpsBtnEl = $('svGpsBtn');
-  gpsBtnEl.addEventListener('click', async () => {
-    gpsBtnEl.disabled = true;
-    gpsBtnEl.textContent = '⏳ 取得中…';
-    const resultEl = $('svGpsResult');
-    try {
-      const pos = await requestGPS((type, msg) => {
-        if (!resultEl) return;
-        resultEl.innerHTML = `<div class="sv-gps-result ${type}" style="display:block;">${msg.replace(/\n/g,'<br>')}</div>`;
-      });
-      sv.state.lat = pos.coords.latitude;
-      sv.state.lng = pos.coords.longitude;
-      sv.state.locationAccuracy = Math.round(pos.coords.accuracy);
-      const acc = accuracyInfo(sv.state.locationAccuracy);
-      if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result ok">
-        <div class="sv-gps-ok-title">✅ 現在地を記録しました</div>
-        <div class="sv-gps-acc">${acc.icon} 精度：${acc.label}（${acc.text}）</div>
-        <a class="sv-maps-link" href="https://maps.google.com/?q=${sv.state.lat},${sv.state.lng}" target="_blank">📍 地図で確認する（ネット接続時）→</a>
-      </div>`;
-      gpsBtnEl.textContent = '🔄 位置情報を取り直す';
-      toast('📍 現在地を記録しました');
-    } catch (err) {
-      if (err.code === 1) {
-        if (resultEl) showGpsDenied(resultEl, true);
-        gpsBtnEl.textContent = '🔄 もう一度試す';
-      } else {
-        if (resultEl) resultEl.innerHTML = `<div class="sv-gps-result error" style="display:block;">${gpsErrorMsg(err)}</div>`;
-        gpsBtnEl.textContent = '🔄 もう一度試す';
-      }
-    } finally {
-      gpsBtnEl.disabled = false;
-    }
-  });
-}
-
-function svRenderStorage(card) {
-  card.innerHTML+=`<p class="sv-step-hint">この自転車をどこに持っていきますか？</p>
-    <div class="sv-choice-grid">
-      ${STORAGE_LOCATIONS.map(loc=>`
-        <button class="sv-choice-btn${sv.state.storageId===loc.id?' selected-green':''}" data-storage="${loc.id}">
-          <span class="sv-choice-icon">🏢</span>
-          <span><span>${loc.name}</span><span class="sv-choice-sub">${loc.address}</span></span>
-        </button>`).join('')}
-    </div>
-    <div class="sv-error-msg" id="svErr"></div>`;
-  card.querySelectorAll('[data-storage]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      sv.state.storageId=btn.dataset.storage;
-      card.querySelectorAll('[data-storage]').forEach(b=>b.className='sv-choice-btn');
-      btn.className='sv-choice-btn selected-green';
-      $('svErr')?.classList.remove('show');
-    });
-  });
-}
-
-function svRenderConfirm(card) {
-  const loc=STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
-  const regText=sv.state.hasReg==='yes'?`あり${sv.state.regNumber?'（'+sv.state.regNumber+'）':'（番号未入力）'}`:sv.state.hasReg==='no'?'なし':'不明';
-  const dtText=sv.state.collectedAt?formatDatetimeJa(sv.state.collectedAt):formatDatetimeJa(new Date().toISOString().slice(0,16));
-  const isObservation = sv.state.actionType === 'observation';
-  const items=[
-    {label:'対応区分',val:actionTypeLabel(sv.state.actionType)||'（未選択）',status:sv.state.actionType?'ok':'missing'},
-    {label:'防犯登録',val:regText,status:'ok'},
-    {label:'自転車の状態',val:sv.state.conditions.length?sv.state.conditions.join('、'):'（選択なし）',status:sv.state.conditions.length?'ok':'warn'},
-    {label:'現在地',val:sv.state.lat?`取得済み（±${sv.state.locationAccuracy}m）`:'未取得',status:sv.state.lat?'ok':'warn'},
-    {label:'回収日時',val:dtText,status:'ok'},
-    {label:'保管場所',val:isObservation?'経過観察のため不要':loc?loc.name:'（未選択）',status:isObservation?'ok':loc?'ok':'missing'},
-    {label:'メモ',val:sv.state.notes||'（なし）',status:'ok'},
-  ];
-  const icons={ok:'✅',warn:'⚠️',missing:'❌'};
-  card.innerHTML+=`<p class="sv-step-hint">入力内容を確認して「保存する」を押してください。</p>
+    <p class="sv-step-hint">以下の内容で保存してQRコードを発行します。</p>
     <div class="sv-confirm-list">
-      ${items.map(item=>`<div class="sv-confirm-item ${item.status}">
-        <span class="sv-confirm-icon">${icons[item.status]}</span>
-        <div><div class="sv-confirm-label">${item.label}</div><div class="sv-confirm-val">${escHtml(item.val)}</div></div>
-      </div>`).join('')}
+      <div class="sv-confirm-item ok">
+        <span class="sv-confirm-icon">📷</span>
+        <div><div class="sv-confirm-label">現場写真</div><div class="sv-confirm-val">${sv.p1Photos.length}枚</div></div>
+      </div>
+      <div class="sv-confirm-item ${sv.state.lat ? 'ok' : 'warn'}">
+        <span class="sv-confirm-icon">📍</span>
+        <div><div class="sv-confirm-label">GPS位置情報</div><div class="sv-confirm-val">${gpsStatus}</div></div>
+      </div>
+      <div class="sv-confirm-item ok">
+        <span class="sv-confirm-icon">🚛</span>
+        <div><div class="sv-confirm-label">対応区分</div><div class="sv-confirm-val">${actionLabel}</div></div>
+      </div>
+      <div class="sv-confirm-item ok">
+        <span class="sv-confirm-icon">🕐</span>
+        <div><div class="sv-confirm-label">記録日時</div><div class="sv-confirm-val">自動記録（保存時）</div></div>
+      </div>
     </div>
-    ${items.some(i=>i.status==='missing')?'<div class="sv-error-msg show" id="svErr">❌ 保管場所が選ばれていません。「もどる」を押して選んでください。</div>':'<div class="sv-error-msg" id="svErr"></div>'}`;
+    <p class="sv-step-hint" style="margin-top:10px;">💡 防犯登録・状態・保管場所などは<br>搬送後に「詳細入力」タブから追加できます。</p>`;
 }
 
-async function svSave(){
-  if(sv.state.actionType!=='observation'&&!sv.state.storageId){toast('⚠️ 保管場所を選んでください');sv.currentStep=svActiveSteps().findIndex(s=>s.id==='storage');svRenderCurrentStep();return;}
-  try{
-    const collectedAt = sv.state.collectedAt
-      ? new Date(sv.state.collectedAt).toISOString()
-      : new Date().toISOString();
-    await saveRecord({
-      actionType:sv.state.actionType||'immediate',
-      hasRegistration:sv.state.hasReg||'unknown',
-      registrationNumber:sv.state.regNumber||'',photoDataUrl:sv.state.photoDataUrl||null,
-      ocrPrediction:sv.state.ocrPrediction||'',inputMethod:sv.state.inputMethod||'manual',
-      conditions:sv.state.conditions,conditionDetails:sv.state.conditionDetails,conditionNote:sv.state.conditionNote||'',
-      lat:sv.state.lat,lng:sv.state.lng,locationAccuracy:sv.state.locationAccuracy,
-      locationNote:'',collectedAt,
-      storageLocationId:sv.state.storageId||'',notes:sv.state.notes||'',
+// ─── Phase 1 保存 ────────────────────────────────
+
+async function svSaveP1() {
+  try {
+    const all = await dbGetAll();
+    const today = new Date().toDateString();
+    const todayCount = all.filter(r => new Date(r.createdAt).toDateString() === today).length;
+    const seqNum = todayCount + 1;
+    const record = await saveRecord({
+      sequenceId: fmtSeqId(seqNum), phase: 1,
+      photos: [...sv.p1Photos],
+      lat: sv.state.lat, lng: sv.state.lng, locationAccuracy: sv.state.locationAccuracy,
+      collectedAt: new Date().toISOString(),
+      actionType: sv.state.actionType,
+      hasRegistration: null, registrationNumber: '', photoDataUrl: null,
+      conditions: [], conditionDetails: {}, conditionNote: '',
+      storageLocationId: '', locationNote: '', notes: '',
     });
     sv.started = false;
-    const count = await countTodayRecords();
-    const loc = STORAGE_LOCATIONS.find(l=>l.id===sv.state.storageId);
-    svRenderDone(count, sv.state.regNumber||'', loc?.name||'');
-  }catch(err){toast('❌ 保存失敗: '+err.message);}
+    await svUpdatePhase2Badge();
+    svRenderP1Done(record);
+  } catch (err) { toast('❌ 保存失敗: ' + err.message); }
 }
 
-function svRenderDone(count, regNumber, storageName) {
-  const regLine = regNumber
-    ? `<div class="sv-done-reg">🔖 登録番号：${escHtml(regNumber)}</div>`
-    : `<div class="sv-done-reg">🔖 登録番号：（なし・不明）</div>`;
-  const content = $('svStepContent');
-  if(!content) return;
+function svRenderP1Done(record) {
+  const content = $('svStepContent'); if (!content) return;
+  const seqId = record.sequenceId;
+  const nav = document.querySelector('.sv-bottom-nav'); if (nav) nav.style.display = 'none';
+  $('svResetBtn').style.display = 'none';
+  $('svStepLabel').textContent = '✅ 登録完了';
+  $('svProgressFill').style.width = '100%';
+  const actionBadge = record.actionType === 'observation'
+    ? '<span class="sv-action-badge obs">👁 経過観察</span>'
+    : '<span class="sv-action-badge imm">🚛 撤去</span>';
   content.innerHTML = `
     <div class="sv-done-card">
       <div class="sv-done-icon">✅</div>
       <div class="sv-done-title">登録完了！</div>
-      <div class="sv-done-count">本日 <strong>${count}</strong> 台目を記録しました</div>
-      ${regLine}
-      <div class="sv-done-storage">🏢 保管先：${escHtml(storageName)}</div>
+      <div class="sv-done-seqid">${escHtml(seqId)}</div>
+      <div style="margin:8px 0;">${actionBadge}</div>
+      <button class="p1-qr-btn" id="svQrBtn" style="margin:14px 0 6px;">📱 QRコードを表示・印刷</button>
       <button class="sv-done-next-btn" id="svDoneNextBtn">➕ 次の自転車を登録する</button>
-      <button class="sv-done-list-btn" id="svDoneListBtn">📋 記録一覧を見る</button>
+      <button class="sv-done-list-btn" id="svDoneDetailBtn">📝 詳細入力タブへ</button>
     </div>`;
-  // ナビボタンを隠す
-  const nav = document.querySelector('.sv-bottom-nav');
-  if(nav) nav.style.display='none';
-  const reset = $('svResetBtn');
-  if(reset) reset.style.display='none';
-  $('svStepLabel').textContent='✅ 登録完了';
-  $('svProgressFill').style.width='100%';
-  $('svDoneNextBtn').addEventListener('click', ()=>{
-    svGoHome();
-  });
-  $('svDoneListBtn').addEventListener('click', ()=>{
-    svGoHome();
-    document.querySelectorAll('.sv-tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('.sv-tab-content').forEach(c=>c.classList.remove('active'));
-    document.querySelector('.sv-tab[data-sv-tab="list"]').classList.add('active');
-    $('svListTab').classList.add('active');
-    svRenderList();
+  $('svQrBtn').addEventListener('click', () => showQROnly(record));
+  $('svDoneNextBtn').addEventListener('click', svGoHome);
+  $('svDoneDetailBtn').addEventListener('click', () => {
+    document.querySelector('.sv-tab[data-sv-tab="phase2"]')?.click();
   });
 }
 
-async function svRenderList(){
-  const records=(await dbGetAll()).sort((a,b)=>new Date(b.collectedAt)-new Date(a.collectedAt));
-  const list=$('svRecordList'); if(!list) return;
-  if(!records.length){list.innerHTML='<p class="sv-muted">まだ記録がありません。</p>';return;}
-  list.innerHTML=records.slice(0,30).map(r=>{
-    const bc=r.hasRegistration==='yes'?'ok':'no';
-    const bt=r.hasRegistration==='yes'?'登録あり':r.hasRegistration==='no'?'登録なし':'不明';
-    const cc=r.hasRegistration==='yes'?'has-reg':'no-reg';
-    const dt=new Date(r.collectedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    return `<div class="sv-record-card ${cc}" onclick="openDetail('${r.id}')">
-      <div><span class="sv-record-badge ${bc}">${bt}</span></div>
-      <div class="sv-record-num">${escHtml(r.registrationNumber||'（番号なし）')}</div>
-      <div class="sv-record-meta">📅 ${dt}<br>🏢 ${escHtml(r.storageLocationName||'')}${r.lat?'<br>📍 位置情報あり':''}<br>${r.synced?'✅ 送信済み':'🕐 まだ送っていません'}</div>
+// ─── Phase 2：詳細入力タブ ───────────────────────
+
+async function svRenderPhase2Tab() {
+  const all = await dbGetAll();
+  const pending = all.filter(r => r.phase === 1)
+    .sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt));
+  const done = all.filter(r => r.phase !== 1)
+    .sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt)).slice(0, 5);
+  const list = $('svPhase2List'); if (!list) return;
+  const fmt = d => new Date(d).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const aLabel = at => at === 'immediate' ? '🚛 撤去' : at === 'observation' ? '👁 経過観察' : '—';
+  const pendingHtml = pending.map(r => `
+    <div class="sv-p2-card pending">
+      <div class="sv-p2-card-header">
+        <span class="sv-p2-seq">${escHtml(r.sequenceId || '---')}</span>
+        <span class="sv-p2-badge pending">詳細未入力</span>
+      </div>
+      <div class="sv-p2-card-meta">
+        📅 ${fmt(r.collectedAt)}&ensp;${aLabel(r.actionType)}&ensp;
+        ${r.lat ? '📍 GPS済み' : '📍 未取得'}&ensp;📷 ${(r.photos||[]).length}枚
+      </div>
+      <button class="sv-p2-enter-btn" onclick="openDetailForm('${r.id}');svUpdatePhase2Badge();">✏️ 詳細を入力する</button>
+    </div>`).join('');
+  const doneHtml = done.length ? `
+    <div class="sv-p2-section-label" style="margin-top:20px;">入力済み（直近${done.length}件）</div>
+    ${done.map(r => `
+    <div class="sv-p2-card done" onclick="openDetail('${r.id}')">
+      <div class="sv-p2-card-header">
+        <span class="sv-p2-seq">${escHtml(r.sequenceId || '---')}</span>
+        <span class="sv-p2-badge done">入力済み</span>
+      </div>
+      <div class="sv-p2-card-meta">📅 ${fmt(r.collectedAt)}&ensp;🏢 ${escHtml(r.storageLocationName || '—')}</div>
+    </div>`).join('')}` : '';
+  list.innerHTML = pending.length
+    ? `<div class="sv-p2-section-label">詳細入力待ち（${pending.length}台）</div>${pendingHtml}${doneHtml}`
+    : `<p class="sv-muted" style="text-align:center;padding:32px 16px;">詳細入力待ちの自転車はありません。</p>${doneHtml}`;
+}
+
+// ─── 記録一覧（らくらくver）────────────────────
+
+async function svRenderList() {
+  const records = (await dbGetAll()).sort((a, b) => new Date(b.collectedAt)-new Date(a.collectedAt));
+  const list = $('svRecordList'); if (!list) return;
+  if (!records.length) { list.innerHTML = '<p class="sv-muted">まだ記録がありません。</p>'; return; }
+  list.innerHTML = records.slice(0,30).map(r => {
+    const isPending = r.phase === 1;
+    const bc = isPending ? 'pending' : r.hasRegistration==='yes' ? 'ok' : 'no';
+    const bt = isPending ? '詳細未入力' : r.hasRegistration==='yes' ? '登録あり' : r.hasRegistration==='no' ? '登録なし' : '不明';
+    const cc = isPending ? 'phase1-pending' : r.hasRegistration==='yes' ? 'has-reg' : 'no-reg';
+    const dt = new Date(r.collectedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const onclick = isPending ? `openDetailForm('${r.id}')` : `openDetail('${r.id}')`;
+    return `<div class="sv-record-card ${cc}" onclick="${onclick}">
+      <div><span class="sv-record-badge ${bc}">${bt}</span>${r.sequenceId ? ` <strong>${escHtml(r.sequenceId)}</strong>` : ''}</div>
+      <div class="sv-record-num">${escHtml(isPending ? '（詳細入力待ち）' : r.registrationNumber || '（番号なし）')}</div>
+      <div class="sv-record-meta">📅 ${dt}${r.lat ? '<br>📍 位置情報あり' : ''}${!isPending&&r.storageLocationName ? '<br>🏢 '+escHtml(r.storageLocationName) : ''}${r.synced ? '<br>✅ 送信済み' : '<br>🕐 まだ送っていません'}</div>
     </div>`;
   }).join('');
 }
 
+// ─── 深リンク処理（QRスキャン時）────────────────
+
+async function handleDeepLink() {
+  const hash = location.hash;
+  if (!hash.startsWith('#detail=')) return;
+  const recordId = decodeURIComponent(hash.slice('#detail='.length));
+  history.replaceState(null, '', location.pathname + location.search);
+  const records = await dbGetAll();
+  const record = records.find(r => r.id === recordId);
+  if (!record) {
+    setTimeout(() => toast('⚠️ QRコードの記録が見つかりません（この端末に登録データがありません）'), 500);
+    return;
+  }
+  if (record.phase !== 1) {
+    setTimeout(() => openDetail(record.id), 400);
+    return;
+  }
+  const mode = getMode();
+  if (mode === 'normal') {
+    setTimeout(() => {
+      document.querySelector('.n-tab[data-n-tab="phase2"]')?.click();
+      setTimeout(() => openDetailForm(record.id), 200);
+    }, 300);
+  } else {
+    setTimeout(() => {
+      document.querySelector('.sv-tab[data-sv-tab="phase2"]')?.click();
+      setTimeout(() => { svRenderPhase2Tab(); openDetailForm(record.id); }, 200);
+    }, 300);
+  }
+}
+
 // ── アプリ起動 ─────────────────────────────────
-document.addEventListener('DOMContentLoaded', async ()=>{
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+document.addEventListener('DOMContentLoaded', async () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   await openDB();
   initModal();
   updateSyncBadge();
@@ -1862,13 +1726,14 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   window.addEventListener('offline', updateSyncBadge);
 
   const mode = getMode();
-  $('normalApp').style.display = mode==='normal' ? 'block' : 'none';
-  $('silverApp').style.display = mode==='silver' ? 'block' : 'none';
+  $('normalApp').style.display = mode === 'normal' ? 'block' : 'none';
+  $('silverApp').style.display = mode === 'silver' ? 'block' : 'none';
   renderSettingsPages(mode);
 
-  if(mode==='normal'){
+  if (mode === 'normal') {
     initNormalApp();
   } else {
     svInit();
   }
+  await handleDeepLink();
 });

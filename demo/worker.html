@@ -124,7 +124,8 @@
       </header>
 
       <nav class="sv-tab-nav">
-        <button class="sv-tab active" data-sv-tab="home">🏠 ホーム</button>
+        <button class="sv-tab active" data-sv-tab="home">📍 現場登録</button>
+        <button class="sv-tab" data-sv-tab="phase2">📝 詳細入力<span id="svPhase2Badge" class="n-phase2-badge"></span></button>
         <button class="sv-tab" data-sv-tab="list">📋 記録一覧</button>
         <button class="sv-tab" data-sv-tab="settings">⚙️ 設定</button>
       </nav>
@@ -143,6 +144,11 @@
           <button id="svPrevBtn" class="sv-btn-back">← もどる</button>
           <button id="svNextBtn" class="sv-btn-next">つぎへ →</button>
         </div>
+      </div>
+
+      <!-- 詳細入力（フェーズ2） -->
+      <div id="svPhase2Tab" class="sv-tab-content">
+        <div id="svPhase2List" class="sv-phase2-list"></div>
       </div>
 
       <!-- 記録一覧 -->
